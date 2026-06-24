@@ -225,7 +225,7 @@ export default function Results() {
         .details-btn:hover { background: #5c2a08 !important; }
       `}</style>
 
-      {/* Background */}
+      {/* Background — results keeps the original warm watermark */}
       <div aria-hidden="true" style={{ position: "fixed", inset: 0, background: "#fdf6ee", zIndex: 0 }} />
       <div aria-hidden="true" style={{
         position: "fixed", inset: 0,

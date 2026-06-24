@@ -17,8 +17,8 @@ export default function Home() {
         }
         .scene-card {
           display: block;
-          border: 1px solid rgba(90,50,20,0.25);
-          background: rgba(255,248,235,0.45);
+          border: 1px solid rgba(30,70,40,0.25);
+          background: rgba(240,248,242,0.45);
           padding: clamp(1rem, 3vw, 1.5rem);
           text-align: center;
           text-decoration: none;
@@ -26,39 +26,39 @@ export default function Home() {
           backdrop-filter: blur(3px);
         }
         .scene-card:hover {
-          border-color: rgba(120,60,20,0.55);
-          background: rgba(255,248,235,0.75);
+          border-color: rgba(40,90,50,0.55);
+          background: rgba(240,248,242,0.78);
         }
         .type-pill {
-          border: 1px solid rgba(90,50,20,0.25);
+          border: 1px solid rgba(30,70,40,0.25);
           padding: 0.4rem 1rem;
           font-weight: 600;
           letter-spacing: 0.15em;
           text-transform: uppercase;
           text-decoration: none;
           transition: all 0.2s;
-          background: rgba(255,248,235,0.35);
+          background: rgba(240,248,242,0.35);
         }
         .type-pill:hover {
-          border-color: rgba(120,60,20,0.55);
-          background: rgba(255,248,235,0.7);
-          color: #4a2008 !important;
+          border-color: rgba(40,90,50,0.55);
+          background: rgba(240,248,242,0.75);
+          color: #1a3a2a !important;
         }
       `}</style>
 
       {/* Full-screen container */}
       <div style={{ position: "relative", minHeight: "100vh", overflow: "hidden" }}>
 
-        {/* Background — light warm base */}
-        <div aria-hidden="true" style={{ position: "fixed", inset: 0, background: "#fdf6ee", zIndex: 0 }} />
+        {/* Background — light sage base */}
+        <div aria-hidden="true" style={{ position: "fixed", inset: 0, background: "#f4f7f0", zIndex: 0 }} />
 
-        {/* Watermark — watermark-bg.jpg at 20% opacity */}
+        {/* Watermark — home-bg.jpg at 20% opacity */}
         <div
           aria-hidden="true"
           style={{
             position: "fixed",
             inset: 0,
-            backgroundImage: "url('/watermark-bg.jpg')",
+            backgroundImage: "url('/home-bg.jpg')",
             backgroundSize: "cover",
             backgroundPosition: "center center",
             backgroundRepeat: "no-repeat",
@@ -72,7 +72,6 @@ export default function Home() {
         <div style={{
           position: "relative",
           zIndex: 2,
-
           minHeight: "100vh",
           display: "flex",
           flexDirection: "column",
@@ -86,9 +85,9 @@ export default function Home() {
             alignItems: "center",
             gap: "0.75rem",
           }}>
-            <span style={{ height: 1, width: 40, background: "rgba(90,50,20,0.35)", display: "block" }} />
-            <span style={{ width: 7, height: 7, background: "#7a3a10", transform: "rotate(45deg)", display: "inline-block" }} />
-            <span style={{ height: 1, width: 40, background: "rgba(90,50,20,0.35)", display: "block" }} />
+            <span style={{ height: 1, width: 40, background: "rgba(30,70,40,0.35)", display: "block" }} />
+            <span style={{ width: 7, height: 7, background: "#3a6642", transform: "rotate(45deg)", display: "inline-block" }} />
+            <span style={{ height: 1, width: 40, background: "rgba(30,70,40,0.35)", display: "block" }} />
           </div>
 
           {/* Title block */}
@@ -99,7 +98,7 @@ export default function Home() {
               fontSize: "clamp(0.55rem, 1.8vw, 0.7rem)",
               letterSpacing: "0.35em",
               textTransform: "uppercase",
-              color: "rgba(80,40,10,0.65)",
+              color: "rgba(30,70,40,0.65)",
             }}>
               New York City
             </p>
@@ -110,8 +109,8 @@ export default function Home() {
               fontSize: "clamp(3.5rem, 16vw, 8rem)",
               lineHeight: 0.95,
               letterSpacing: "0.08em",
-              color: "#5c2a08",
-              textShadow: "0 1px 0 rgba(255,220,170,0.4)",
+              color: "#1a3a2a",
+              textShadow: "0 1px 0 rgba(180,220,190,0.4)",
             }}>
               Metropolitan
             </h1>
@@ -122,7 +121,7 @@ export default function Home() {
               fontSize: "clamp(0.55rem, 1.8vw, 0.7rem)",
               letterSpacing: "0.35em",
               textTransform: "uppercase",
-              color: "rgba(80,40,10,0.65)",
+              color: "rgba(30,70,40,0.65)",
             }}>
               Event Guide · Summer 2026
             </p>
@@ -136,9 +135,9 @@ export default function Home() {
             alignItems: "center",
             gap: "0.75rem",
           }}>
-            <span style={{ height: 1, width: 40, background: "rgba(90,50,20,0.35)", display: "block" }} />
-            <span style={{ width: 7, height: 7, background: "#7a3a10", transform: "rotate(45deg)", display: "inline-block" }} />
-            <span style={{ height: 1, width: 40, background: "rgba(90,50,20,0.35)", display: "block" }} />
+            <span style={{ height: 1, width: 40, background: "rgba(30,70,40,0.35)", display: "block" }} />
+            <span style={{ width: 7, height: 7, background: "#3a6642", transform: "rotate(45deg)", display: "inline-block" }} />
+            <span style={{ height: 1, width: 40, background: "rgba(30,70,40,0.35)", display: "block" }} />
           </div>
 
           {/* Main content area */}
@@ -157,7 +156,7 @@ export default function Home() {
               fontFamily: "var(--font-cormorant), Georgia, serif",
               fontSize: "clamp(1rem, 3vw, 1.3rem)",
               fontStyle: "italic",
-              color: "rgba(70,30,5,0.8)",
+              color: "rgba(20,60,30,0.8)",
             }}>
               What are you looking for tonight?
             </p>
@@ -179,13 +178,12 @@ export default function Home() {
                   <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.6rem" }}>
                     <span style={{
                       width: 7, height: 7,
-                      background: "#7a3a10",
+                      background: "#3a6642",
                       transform: "rotate(45deg)",
                       display: "inline-block",
                       opacity: 0.75,
                     }} />
                   </div>
-                  {/* Label only — no subtitle */}
                   <p style={{
                     margin: 0,
                     fontFamily: "var(--font-josefin), system-ui, sans-serif",
@@ -193,7 +191,7 @@ export default function Home() {
                     fontWeight: 600,
                     letterSpacing: "0.15em",
                     textTransform: "uppercase",
-                    color: "#4a2008",
+                    color: "#1a3a2a",
                   }}>
                     {scene.label}
                   </p>
@@ -208,18 +206,18 @@ export default function Home() {
               gap: "1rem",
               marginBottom: "clamp(0.75rem, 2vw, 1.1rem)",
             }}>
-              <span style={{ height: 1, flex: 1, background: "rgba(90,50,20,0.2)" }} />
+              <span style={{ height: 1, flex: 1, background: "rgba(30,70,40,0.2)" }} />
               <span style={{
                 fontFamily: "var(--font-josefin), system-ui, sans-serif",
                 fontSize: "0.58rem",
                 letterSpacing: "0.3em",
-                color: "rgba(70,30,5,0.55)",
+                color: "rgba(20,60,30,0.55)",
                 textTransform: "uppercase",
                 whiteSpace: "nowrap",
               }}>
                 Or browse by type
               </span>
-              <span style={{ height: 1, flex: 1, background: "rgba(90,50,20,0.2)" }} />
+              <span style={{ height: 1, flex: 1, background: "rgba(30,70,40,0.2)" }} />
             </div>
 
             {/* Type pills */}
@@ -238,7 +236,7 @@ export default function Home() {
                   style={{
                     fontFamily: "var(--font-josefin), system-ui, sans-serif",
                     fontSize: "clamp(0.55rem, 1.8vw, 0.65rem)",
-                    color: "rgba(70,30,5,0.75)",
+                    color: "rgba(20,60,30,0.75)",
                   }}
                 >
                   {t.label}
@@ -255,12 +253,12 @@ export default function Home() {
                   fontSize: "0.6rem",
                   letterSpacing: "0.25em",
                   textTransform: "uppercase",
-                  color: "rgba(70,30,5,0.45)",
+                  color: "rgba(20,60,30,0.45)",
                   textDecoration: "none",
                   transition: "color 0.2s",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "#7a3a10")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(70,30,5,0.45)")}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#3a6642")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(20,60,30,0.45)")}
               >
                 Browse all events →
               </Link>
