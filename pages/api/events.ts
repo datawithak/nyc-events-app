@@ -53,20 +53,21 @@ const NEIGHBORHOOD_ZIPS: Record<string, string[]> = {
 };
 
 const SCENE_MAP: Record<string, { audiences?: string[]; categories?: string[] }> = {
-  "friends-night":  { categories: ["music", "comedy", "food_drink"] },
+  "friends-night":  { categories: ["music", "comedy", "food_drink", "nightlife", "electronic", "dance"] },
   "with-kids":      { audiences: ["kids", "family", "parents"] },
   "date-night":     { categories: ["theater", "arts", "film"] },
   solo:             { categories: ["arts", "outdoor", "film", "education"] },
 };
 
 const TYPE_MAP: Record<string, { categories?: string[] }> = {
-  music:            { categories: ["music", "rock", "pop", "jazz"] },
-  "art-culture":    { categories: ["arts", "arts & theatre"] },
+  music:            { categories: ["music", "rock", "pop", "jazz", "alternative", "hip-hop", "r&b", "country", "classical", "folk"] },
+  electronic:       { categories: ["electronic", "nightlife", "dance", "edm", "house", "techno", "drum and bass", "dnb", "trance", "dubstep", "club"] },
+  "art-culture":    { categories: ["arts", "arts & theatre", "gallery", "exhibition"] },
   "food-drink":     { categories: ["food_drink", "food & drink"] },
   theater:          { categories: ["theater", "theatre", "musical"] },
   comedy:           { categories: ["comedy"] },
   film:             { categories: ["film"] },
-  "sports-fitness": { categories: ["sports", "fitness"] },
+  "sports-fitness": { categories: ["sports", "fitness", "wellness"] },
   outdoor:          { categories: ["outdoor", "parks"] },
   markets:          { categories: ["markets"] },
   "kids-family":    { categories: ["kids", "family", "children"] },

@@ -38,6 +38,7 @@ export const SCENES: {
 
 export const BROWSE_TYPES: { id: EventType; label: string }[] = [
   { id: "music", label: "Music" },
+  { id: "electronic", label: "Electronic / Nightlife" },
   { id: "art-culture", label: "Art & Culture" },
   { id: "food-drink", label: "Food & Drink" },
   { id: "theater", label: "Theater" },
@@ -50,6 +51,7 @@ export const BROWSE_TYPES: { id: EventType; label: string }[] = [
 export const REFINE_TYPES: { id: EventType; label: string }[] = [
   { id: "all", label: "All" },
   { id: "music", label: "Music" },
+  { id: "electronic", label: "Electronic / Nightlife" },
   { id: "art-culture", label: "Art & Culture" },
   { id: "food-drink", label: "Food & Drink" },
   { id: "theater", label: "Theater" },
@@ -81,7 +83,10 @@ export const SCENE_QUERY_MAP: Record<Scene, QueryMap> = {
 
 export const TYPE_QUERY_MAP: Record<Exclude<EventType, "all">, QueryMap> = {
   music: {
-    categories: ["music", "rock", "pop", "jazz", "alternative", "hip-hop"],
+    categories: ["music", "rock", "pop", "jazz", "alternative", "hip-hop", "r&b", "country", "classical", "folk"],
+  },
+  electronic: {
+    categories: ["electronic", "nightlife", "dance", "edm", "house", "techno", "drum and bass", "dnb", "trance", "dubstep", "club"],
   },
   "art-culture": {
     categories: ["arts", "arts & theatre", "miscellaneous"],

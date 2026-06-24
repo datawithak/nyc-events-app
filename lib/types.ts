@@ -26,6 +26,7 @@ export type Scene =
 export type EventType =
   | "all"
   | "music"
+  | "electronic"
   | "art-culture"
   | "food-drink"
   | "theater"
