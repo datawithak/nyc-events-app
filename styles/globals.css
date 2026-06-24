@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #0a0f0a;
+  --forest: #1a3326;
+  --forest-light: #2d4a3e;
+  --lime: #b5d43c;
+  --lime-hover: #a3c232;
+  --cream: #f5f0e6;
+  --cream-dark: #e8e0d0;
+  --muted: #8a8a7a;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-forest: var(--forest);
+  --color-forest-light: var(--forest-light);
+  --color-lime: var(--lime);
+  --color-lime-hover: var(--lime-hover);
+  --color-cream: var(--cream);
+  --color-cream-dark: var(--cream-dark);
+  --color-muted: var(--muted);
+  --font-display: var(--font-bebas);
+  --font-serif: var(--font-cormorant);
+  --font-body: var(--font-josefin);
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--ink);
+  font-family: var(--font-josefin), system-ui, sans-serif;
+}
+
+.metro-title {
+  font-family: var(--font-bebas), sans-serif;
+  letter-spacing: 0.15em;
+  -webkit-text-stroke: 1.5px var(--forest-light);
+  color: transparent;
+}
+
+.deco-diamond {
+  width: 8px;
+  height: 8px;
+  background: var(--lime);
+  transform: rotate(45deg);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.deco-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.deco-divider::before,
+.deco-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--muted);
+  opacity: 0.4;
+}
