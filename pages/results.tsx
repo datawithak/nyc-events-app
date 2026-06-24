@@ -179,19 +179,26 @@ export default function Results() {
     doFetch({ ...next, pg: 1 });
   }
 
-  // ── Read URL params on first load (from Metropolitan page) ─────────────────
+  // ── Sync URL params → state & auto-fetch when URL changes ───────────────────
+  // Use router.asPath (not router.isReady) as the dependency so this re-fires
+  // on every client-side navigation. When router.isReady is already true on
+  // mount (happens with <Link> navigation), [router.isReady] would never change
+  // again, leaving the previous route's stale query in effect.
   useEffect(() => {
     if (!router.isReady) return;
     const s = (router.query.scene as string) || "";
     const t = (router.query.type  as string) || "all";
     const b = (router.query.borough as string) || "";
 
-    setScene(s); setType(t); setBorough(b);
+    setScene(s); setType(t); setBorough(b); setNeighborhood("");
 
     if (s || t !== "all" || b) {
       doFetch({ borough: b, neighborhood: "", scene: s, type: t, price: "all", pg: 1 });
+    } else {
+      // Navigated to /results with no params — reset to the "pick a filter" state
+      setEvents([]); setTotal(0); setHasSearched(false);
     }
-  }, [router.isReady]); // eslint-disable-line
+  }, [router.asPath]); // eslint-disable-line
 
   const cur = { borough, neighborhood, scene, type, price };
   const subNeighborhoods = NEIGHBORHOODS[borough] ?? [];
