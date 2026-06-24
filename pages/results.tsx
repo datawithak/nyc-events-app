@@ -8,9 +8,11 @@ import type { Event } from "@/lib/types";
 
 // ─── Dropdown options ──────────────────────────────────────────────────────────
 
-const LOCATION_OPTIONS = {
-  boroughs: ["Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island"],
-  manhattan: [
+const BOROUGHS = ["Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island"];
+
+// Sub-neighborhoods per borough (expand over time)
+const NEIGHBORHOODS: Record<string, string[]> = {
+  Manhattan: [
     "Hudson Yards",
     "Hell's Kitchen",
     "Midtown",
@@ -30,6 +32,29 @@ const LOCATION_OPTIONS = {
     "East Harlem",
     "Washington Heights",
     "Financial District",
+  ],
+  Brooklyn: [
+    "Williamsburg",
+    "DUMBO",
+    "Brooklyn Heights",
+    "Park Slope",
+    "Crown Heights",
+    "Bushwick",
+    "Bed-Stuy",
+    "Cobble Hill",
+    "Prospect Heights",
+    "Red Hook",
+    "Sunset Park",
+    "Bay Ridge",
+  ],
+  Queens: [
+    "Astoria",
+    "Long Island City",
+    "Flushing",
+    "Jamaica",
+    "Forest Hills",
+    "Jackson Heights",
+    "Ridgewood",
   ],
 };
 
@@ -70,11 +95,18 @@ const DD: React.CSSProperties = {
 export default function Results() {
   const router = useRouter();
 
-  // Filter state
-  const [location, setLocation] = useState("");   // "" | "Manhattan" | "nbhd:Hudson Yards" etc.
-  const [scene, setScene]       = useState("");
-  const [type, setType]         = useState("all");
-  const [price, setPrice]       = useState("all");
+  // Filter state — two-step: pick borough first, then optional sub-neighborhood
+  const [borough, setBorough]       = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
+  const [scene, setScene]           = useState("");
+  const [type, setType]             = useState("all");
+  const [price, setPrice]           = useState("all");
+
+  // Derived API location param
+  function locationParam(b: string, n: string) {
+    if (n) return `nbhd:${n}`;
+    return b;
+  }
 
   // Results
   const [events, setEvents]         = useState<Event[]>([]);
@@ -86,24 +118,23 @@ export default function Results() {
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
-  function isDefault(f: { location: string; scene: string; type: string; price: string }) {
-    return !f.location && !f.scene && f.type === "all" && f.price === "all";
+  function isDefault(f: { borough: string; neighborhood: string; scene: string; type: string; price: string }) {
+    return !f.borough && !f.neighborhood && !f.scene && f.type === "all" && f.price === "all";
   }
 
   async function doFetch(opts: {
-    location: string; scene: string; type: string; price: string; pg: number;
+    borough: string; neighborhood: string; scene: string; type: string; price: string; pg: number;
   }) {
     if (isDefault(opts)) {
-      setEvents([]);
-      setTotal(0);
-      setHasSearched(false);
+      setEvents([]); setTotal(0); setHasSearched(false);
       return;
     }
     setLoading(true);
     setHasSearched(true);
     try {
       const p = new URLSearchParams({ limit: "24", offset: String((opts.pg - 1) * 24) });
-      if (opts.location) p.set("borough", opts.location);   // API handles nbhd: prefix
+      const loc = locationParam(opts.borough, opts.neighborhood);
+      if (loc) p.set("borough", loc);
       if (opts.scene) p.set("scene", opts.scene);
       if (opts.type !== "all") p.set("type", opts.type);
       if (opts.price !== "all") p.set("price", opts.price);
@@ -121,18 +152,30 @@ export default function Results() {
     }
   }
 
-  // Generic dropdown change — always passes new values directly (no stale closures)
-  function handleChange(field: "location" | "scene" | "type" | "price", value: string) {
+  // Borough change — clears neighborhood since sub-neighborhoods are borough-specific
+  function handleBoroughChange(value: string) {
+    setBorough(value);
+    setNeighborhood("");
+    const next = { borough: value, neighborhood: "", scene, type, price };
+    doFetch({ ...next, pg: 1 });
+  }
+
+  // Neighborhood change — keeps current borough
+  function handleNeighborhoodChange(value: string) {
+    setNeighborhood(value);
+    const next = { borough, neighborhood: value, scene, type, price };
+    doFetch({ ...next, pg: 1 });
+  }
+
+  // Generic change for scene/type/price
+  function handleChange(field: "scene" | "type" | "price", value: string) {
     const next = {
-      location: field === "location" ? value : location,
-      scene:    field === "scene"    ? value : scene,
-      type:     field === "type"     ? value : type,
-      price:    field === "price"    ? value : price,
+      borough, neighborhood,
+      scene: field === "scene" ? value : scene,
+      type:  field === "type"  ? value : type,
+      price: field === "price" ? value : price,
     };
-    setLocation(next.location);
-    setScene(next.scene);
-    setType(next.type);
-    setPrice(next.price);
+    setScene(next.scene); setType(next.type); setPrice(next.price);
     doFetch({ ...next, pg: 1 });
   }
 
@@ -143,16 +186,15 @@ export default function Results() {
     const t = (router.query.type  as string) || "all";
     const b = (router.query.borough as string) || "";
 
-    setScene(s);
-    setType(t);
-    setLocation(b);
+    setScene(s); setType(t); setBorough(b);
 
     if (s || t !== "all" || b) {
-      doFetch({ location: b, scene: s, type: t, price: "all", pg: 1 });
+      doFetch({ borough: b, neighborhood: "", scene: s, type: t, price: "all", pg: 1 });
     }
   }, [router.isReady]); // eslint-disable-line
 
-  const cur = { location, scene, type, price };
+  const cur = { borough, neighborhood, scene, type, price };
+  const subNeighborhoods = NEIGHBORHOODS[borough] ?? [];
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -225,25 +267,30 @@ export default function Results() {
             Choose your filters to explore events
           </p>
 
-          {/* 4 dropdowns in a row */}
+          {/* Dropdowns — Borough first, then neighborhood if available, then filters */}
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0.625rem" }}>
 
-            {/* Neighborhood / Borough */}
+            {/* Step 1: Borough */}
             <div className="dd-wrap">
-              <select value={location} onChange={(e) => handleChange("location", e.target.value)} style={DD}>
-                <option value="">Neighborhood</option>
-                <optgroup label="NYC Boroughs">
-                  {LOCATION_OPTIONS.boroughs.map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="Manhattan Neighborhoods">
-                  {LOCATION_OPTIONS.manhattan.map((n) => (
-                    <option key={n} value={`nbhd:${n}`}>{n}</option>
-                  ))}
-                </optgroup>
+              <select value={borough} onChange={(e) => handleBoroughChange(e.target.value)} style={DD}>
+                <option value="">Borough</option>
+                {BOROUGHS.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
               </select>
             </div>
+
+            {/* Step 2: Neighborhood — only shown when the selected borough has sub-neighborhoods */}
+            {subNeighborhoods.length > 0 && (
+              <div className="dd-wrap">
+                <select value={neighborhood} onChange={(e) => handleNeighborhoodChange(e.target.value)} style={DD}>
+                  <option value="">All {borough}</option>
+                  {subNeighborhoods.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Your Scene */}
             <div className="dd-wrap">
@@ -322,6 +369,7 @@ export default function Results() {
                 <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "1.5rem", marginTop: "2.5rem" }}>
                   <button
                     onClick={() => doFetch({ ...cur, pg: page - 1 })}
+
                     disabled={page <= 1 || loading}
                     style={{
                       border: "1px solid rgba(90,50,20,0.25)", background: "rgba(255,248,235,0.6)",
@@ -337,6 +385,7 @@ export default function Results() {
                   </span>
                   <button
                     onClick={() => doFetch({ ...cur, pg: page + 1 })}
+
                     disabled={page >= totalPages || loading}
                     style={{
                       border: "1px solid rgba(90,50,20,0.25)", background: "rgba(255,248,235,0.6)",

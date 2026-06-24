@@ -29,6 +29,27 @@ const NEIGHBORHOOD_ZIPS: Record<string, string[]> = {
   "East Harlem":       ["10029", "10035"],
   "Washington Heights":["10032", "10033", "10034", "10040"],
   "Financial District":["10004", "10005", "10006", "10038"],
+  // Brooklyn
+  "Williamsburg":      ["11206", "11211", "11249"],
+  "DUMBO":             ["11201"],
+  "Brooklyn Heights":  ["11201"],
+  "Park Slope":        ["11215", "11217"],
+  "Crown Heights":     ["11213", "11225"],
+  "Bushwick":          ["11207", "11221", "11237"],
+  "Bed-Stuy":          ["11216", "11221", "11233"],
+  "Cobble Hill":       ["11201"],
+  "Prospect Heights":  ["11217", "11238"],
+  "Red Hook":          ["11231"],
+  "Sunset Park":       ["11220", "11232"],
+  "Bay Ridge":         ["11209"],
+  // Queens
+  "Astoria":           ["11102", "11103", "11105", "11106"],
+  "Long Island City":  ["11101", "11102"],
+  "Flushing":          ["11354", "11355", "11358"],
+  "Jamaica":           ["11432", "11433", "11434", "11435"],
+  "Forest Hills":      ["11375"],
+  "Jackson Heights":   ["11372"],
+  "Ridgewood":         ["11385"],
 };
 
 const SCENE_MAP: Record<string, { audiences?: string[]; categories?: string[] }> = {
@@ -80,10 +101,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ── Location filter ───────────────────────────────────────────────────────
     if (borough && borough !== "All Neighborhoods" && borough !== "") {
       if (borough.startsWith("nbhd:")) {
-        // Sub-neighborhood: restrict to Manhattan then filter by ZIP codes
+        // Sub-neighborhood: filter by ZIP codes in address field
         const nbhd = borough.replace("nbhd:", "");
         const zips = NEIGHBORHOOD_ZIPS[nbhd] ?? [];
-        query = query.eq("borough", "Manhattan");
         if (zips.length > 0) {
           const zipParts = zips.map((z) => `address.ilike.%${z}%`);
           query = query.or(zipParts.join(","));
