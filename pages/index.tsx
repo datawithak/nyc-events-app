@@ -29,7 +29,7 @@ export default function Landing() {
           /* cover on desktop, contain on tall phones so text is never cropped */
           backgroundImage: "url('/landing-bg.png')",
           backgroundSize: "cover",
-          backgroundPosition: "center top",
+          backgroundPosition: "center center",
           backgroundRepeat: "no-repeat",
           cursor: "pointer",
           WebkitTapHighlightColor: "transparent",

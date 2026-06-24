@@ -1,320 +1,432 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import Head from "next/head";
 import Link from "next/link";
-import { NEIGHBORHOODS, REFINE_TYPES } from "@/lib/constants";
+import { REFINE_TYPES } from "@/lib/constants";
 import { formatEventDate, formatEventTime, formatPrice } from "@/lib/format";
 import type { Event } from "@/lib/types";
 
-const SCENE_LABELS: Record<string, string> = {
-  "friends-night": "Friends Night",
-  "with-kids": "With Kids",
-  "date-night": "Date Night",
-  solo: "Solo",
+// ─── Dropdown options ──────────────────────────────────────────────────────────
+
+const LOCATION_OPTIONS = {
+  boroughs: ["Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island"],
+  manhattan: [
+    "Hudson Yards",
+    "Hell's Kitchen",
+    "Midtown",
+    "Murray Hill",
+    "NoMad",
+    "Rose Hill",
+    "Gramercy",
+    "Chelsea",
+    "West Village",
+    "SoHo",
+    "Tribeca",
+    "East Village",
+    "Lower East Side",
+    "Upper West Side",
+    "Upper East Side",
+    "Harlem",
+    "East Harlem",
+    "Washington Heights",
+    "Financial District",
+  ],
 };
 
-const SCENES = Object.entries(SCENE_LABELS);
+const SCENE_OPTIONS = [
+  { value: "", label: "Your Scene" },
+  { value: "friends-night", label: "Friends Night" },
+  { value: "with-kids", label: "With Kids" },
+  { value: "date-night", label: "Date Night" },
+  { value: "solo", label: "Solo" },
+];
+
+const PRICE_OPTIONS = [
+  { value: "all", label: "Any Price" },
+  { value: "free", label: "Free" },
+  { value: "paid", label: "Paid" },
+];
+
+// Shared dropdown style
+const DD: React.CSSProperties = {
+  border: "1px solid rgba(90,50,20,0.3)",
+  background: "rgba(255,248,235,0.75)",
+  backdropFilter: "blur(4px)",
+  padding: "0.55rem 2rem 0.55rem 0.85rem",
+  fontFamily: "var(--font-josefin), system-ui, sans-serif",
+  fontSize: "clamp(0.58rem, 1.6vw, 0.7rem)",
+  letterSpacing: "0.14em",
+  textTransform: "uppercase",
+  color: "#4a2008",
+  cursor: "pointer",
+  appearance: "none",
+  WebkitAppearance: "none",
+  minWidth: "152px",
+  outline: "none",
+};
+
+// ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function Results() {
   const router = useRouter();
-  const { scene, type, q, borough: boroughParam } = router.query;
-
-  const [events, setEvents] = useState<Event[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(false);
 
   // Filter state
-  const [selectedScene, setSelectedScene] = useState<string>("");
-  const [selectedType, setSelectedType] = useState<string>("all");
-  const [selectedBorough, setSelectedBorough] = useState<string>("All Neighborhoods");
-  const [price, setPrice] = useState<string>("all");
-  const [query, setQuery] = useState<string>("");
+  const [location, setLocation] = useState("");   // "" | "Manhattan" | "nbhd:Hudson Yards" etc.
+  const [scene, setScene]       = useState("");
+  const [type, setType]         = useState("all");
+  const [price, setPrice]       = useState("all");
 
-  // Sync filter state from URL on first load
-  useEffect(() => {
-    if (!router.isReady) return;
-    if (scene && typeof scene === "string") setSelectedScene(scene);
-    if (type && typeof type === "string") setSelectedType(type);
-    if (boroughParam && typeof boroughParam === "string") setSelectedBorough(boroughParam);
-    if (q && typeof q === "string") setQuery(q);
-  }, [router.isReady, scene, type, boroughParam, q]);
+  // Results
+  const [events, setEvents]         = useState<Event[]>([]);
+  const [total, setTotal]           = useState(0);
+  const [page, setPage]             = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading]       = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
-  const fetchEvents = useCallback(async (pg: number) => {
+  // ── helpers ────────────────────────────────────────────────────────────────
+
+  function isDefault(f: { location: string; scene: string; type: string; price: string }) {
+    return !f.location && !f.scene && f.type === "all" && f.price === "all";
+  }
+
+  async function doFetch(opts: {
+    location: string; scene: string; type: string; price: string; pg: number;
+  }) {
+    if (isDefault(opts)) {
+      setEvents([]);
+      setTotal(0);
+      setHasSearched(false);
+      return;
+    }
     setLoading(true);
+    setHasSearched(true);
     try {
-      const params = new URLSearchParams({
-        limit: "24",
-        offset: String((pg - 1) * 24),
-        ...(selectedScene && { scene: selectedScene }),
-        ...(selectedType !== "all" && { type: selectedType }),
-        ...(selectedBorough !== "All Neighborhoods" && { borough: selectedBorough }),
-        ...(price !== "all" && { price }),
-        ...(query.trim() && { q: query.trim() }),
-      });
-      const res = await fetch(`/api/events?${params}`);
+      const p = new URLSearchParams({ limit: "24", offset: String((opts.pg - 1) * 24) });
+      if (opts.location) p.set("borough", opts.location);   // API handles nbhd: prefix
+      if (opts.scene) p.set("scene", opts.scene);
+      if (opts.type !== "all") p.set("type", opts.type);
+      if (opts.price !== "all") p.set("price", opts.price);
+
+      const res  = await fetch(`/api/events?${p}`);
       const data = await res.json();
       setEvents(data.events ?? []);
       setTotal(data.total ?? 0);
       setTotalPages(data.totalPages ?? 1);
+      setPage(opts.pg);
     } catch {
       setEvents([]);
     } finally {
       setLoading(false);
     }
-  }, [selectedScene, selectedType, selectedBorough, price, query]);
-
-  // Re-fetch when filters change
-  useEffect(() => {
-    if (!router.isReady) return;
-    setPage(1);
-    fetchEvents(1);
-  }, [router.isReady, fetchEvents]);
-
-  function handleFilterChange() {
-    setPage(1);
-    fetchEvents(1);
   }
 
+  // Generic dropdown change — always passes new values directly (no stale closures)
+  function handleChange(field: "location" | "scene" | "type" | "price", value: string) {
+    const next = {
+      location: field === "location" ? value : location,
+      scene:    field === "scene"    ? value : scene,
+      type:     field === "type"     ? value : type,
+      price:    field === "price"    ? value : price,
+    };
+    setLocation(next.location);
+    setScene(next.scene);
+    setType(next.type);
+    setPrice(next.price);
+    doFetch({ ...next, pg: 1 });
+  }
+
+  // ── Read URL params on first load (from Metropolitan page) ─────────────────
+  useEffect(() => {
+    if (!router.isReady) return;
+    const s = (router.query.scene as string) || "";
+    const t = (router.query.type  as string) || "all";
+    const b = (router.query.borough as string) || "";
+
+    setScene(s);
+    setType(t);
+    setLocation(b);
+
+    if (s || t !== "all" || b) {
+      doFetch({ location: b, scene: s, type: t, price: "all", pg: 1 });
+    }
+  }, [router.isReady]); // eslint-disable-line
+
+  const cur = { location, scene, type, price };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-ink text-cream">
-      {/* Header */}
-      <header className="border-b border-cream/10 bg-forest px-4 py-3 sm:px-6">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <Link
-            href="/home"
-            className="flex items-center gap-2 text-xs tracking-widest text-cream/70 uppercase hover:text-cream"
-          >
-            <span className="deco-diamond" />
-            <span className="font-semibold">Metropolitan</span>
+    <>
+      <Head>
+        <title>Metropolitan — Events</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+      </Head>
+
+      <style>{`
+        html, body, #__next, #__next > div { margin: 0; padding: 0; width: 100%; }
+        select option, select optgroup { background: #fff8f0; color: #4a2008; }
+        .dd-wrap { position: relative; display: inline-block; }
+        .dd-wrap::after {
+          content: "▾"; position: absolute; right: 0.6rem; top: 50%;
+          transform: translateY(-50%); pointer-events: none;
+          color: #7a3a10; font-size: 0.6rem;
+        }
+        .ev-card { transition: border-color 0.2s, background 0.2s; }
+        .ev-card:hover { border-color: rgba(122,58,16,0.5) !important; background: rgba(255,248,235,0.88) !important; }
+        .details-btn:hover { background: #5c2a08 !important; }
+      `}</style>
+
+      {/* Background */}
+      <div aria-hidden="true" style={{ position: "fixed", inset: 0, background: "#fdf6ee", zIndex: 0 }} />
+      <div aria-hidden="true" style={{
+        position: "fixed", inset: 0,
+        backgroundImage: "url('/watermark-bg.jpg')",
+        backgroundSize: "cover", backgroundPosition: "center",
+        opacity: 0.2, zIndex: 1, pointerEvents: "none",
+      }} />
+
+      {/* Page */}
+      <div style={{ position: "relative", zIndex: 2, minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+
+        {/* Header */}
+        <header style={{
+          borderBottom: "1px solid rgba(90,50,20,0.15)",
+          background: "rgba(253,246,238,0.85)",
+          backdropFilter: "blur(8px)",
+          padding: "0.875rem 1.5rem",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <Link href="/home" style={{
+            fontFamily: "var(--font-josefin), system-ui, sans-serif",
+            fontSize: "0.62rem", letterSpacing: "0.28em",
+            textTransform: "uppercase", color: "rgba(74,32,8,0.65)",
+            textDecoration: "none",
+          }}>
+            ← Metropolitan
           </Link>
-          <span className="text-xs tracking-widest text-cream/40 uppercase">
-            {loading ? "Loading…" : `${total.toLocaleString()} events`}
+          <span style={{
+            fontFamily: "var(--font-josefin), system-ui, sans-serif",
+            fontSize: "0.6rem", letterSpacing: "0.22em",
+            textTransform: "uppercase", color: "rgba(74,32,8,0.4)",
+          }}>
+            {loading ? "Loading…" : hasSearched ? `${total.toLocaleString()} events` : ""}
           </span>
-        </div>
-      </header>
+        </header>
 
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        {/* Search bar */}
-        <form
-          onSubmit={(e) => { e.preventDefault(); handleFilterChange(); }}
-          className="mb-8 flex"
-        >
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Search events…`}
-            className="flex-1 border border-cream/20 bg-ink/60 px-4 py-3 font-serif text-sm italic text-cream placeholder:text-cream/30 focus:border-lime/50 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="bg-lime px-6 py-3 text-xs font-semibold tracking-widest text-ink uppercase hover:bg-lime-hover transition-colors"
-          >
-            Search
-          </button>
-        </form>
+        {/* Filter bar */}
+        <div style={{ padding: "2rem 1.5rem 1.25rem", display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+          <p style={{
+            margin: 0,
+            fontFamily: "var(--font-cormorant), Georgia, serif",
+            fontSize: "clamp(0.95rem, 2.5vw, 1.15rem)",
+            fontStyle: "italic",
+            color: "rgba(74,32,8,0.6)",
+          }}>
+            Choose your filters to explore events
+          </p>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
-          {/* Sidebar filters */}
-          <aside className="lg:col-span-1">
-            <div className="sticky top-6 space-y-8">
+          {/* 4 dropdowns in a row */}
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0.625rem" }}>
 
-              {/* Scene */}
-              <div>
-                <h3 className="mb-3 text-[10px] tracking-[0.3em] text-cream/40 uppercase">
-                  Your scene
-                </h3>
-                <div className="space-y-1">
-                  <button
-                    onClick={() => { setSelectedScene(""); handleFilterChange(); }}
-                    className={`w-full text-left px-3 py-2 text-xs tracking-wider uppercase transition-colors ${
-                      !selectedScene
-                        ? "bg-lime text-ink font-semibold"
-                        : "text-cream/60 hover:text-cream border border-cream/10 hover:border-cream/20"
-                    }`}
-                  >
-                    All
-                  </button>
-                  {SCENES.map(([id, label]) => (
-                    <button
-                      key={id}
-                      onClick={() => { setSelectedScene(id); handleFilterChange(); }}
-                      className={`w-full text-left px-3 py-2 text-xs tracking-wider uppercase transition-colors ${
-                        selectedScene === id
-                          ? "bg-lime text-ink font-semibold"
-                          : "text-cream/60 hover:text-cream border border-cream/10 hover:border-cream/20"
-                      }`}
-                    >
-                      {label}
-                    </button>
+            {/* Neighborhood / Borough */}
+            <div className="dd-wrap">
+              <select value={location} onChange={(e) => handleChange("location", e.target.value)} style={DD}>
+                <option value="">Neighborhood</option>
+                <optgroup label="NYC Boroughs">
+                  {LOCATION_OPTIONS.boroughs.map((b) => (
+                    <option key={b} value={b}>{b}</option>
                   ))}
-                </div>
-              </div>
-
-              {/* Type */}
-              <div>
-                <h3 className="mb-3 text-[10px] tracking-[0.3em] text-cream/40 uppercase">
-                  Type
-                </h3>
-                <div className="space-y-1">
-                  {REFINE_TYPES.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => { setSelectedType(t.id); handleFilterChange(); }}
-                      className={`w-full text-left px-3 py-2 text-xs tracking-wider uppercase transition-colors ${
-                        selectedType === t.id
-                          ? "bg-lime text-ink font-semibold"
-                          : "text-cream/60 hover:text-cream border border-cream/10 hover:border-cream/20"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
+                </optgroup>
+                <optgroup label="Manhattan Neighborhoods">
+                  {LOCATION_OPTIONS.manhattan.map((n) => (
+                    <option key={n} value={`nbhd:${n}`}>{n}</option>
                   ))}
-                </div>
-              </div>
-
-              {/* Borough */}
-              <div>
-                <h3 className="mb-3 text-[10px] tracking-[0.3em] text-cream/40 uppercase">
-                  Borough
-                </h3>
-                <select
-                  value={selectedBorough}
-                  onChange={(e) => { setSelectedBorough(e.target.value); handleFilterChange(); }}
-                  className="w-full border border-cream/20 bg-ink px-3 py-2 text-xs text-cream/70 focus:border-lime/50 focus:outline-none"
-                >
-                  {NEIGHBORHOODS.map((n) => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Price */}
-              <div>
-                <h3 className="mb-3 text-[10px] tracking-[0.3em] text-cream/40 uppercase">
-                  Price
-                </h3>
-                <div className="space-y-2">
-                  {[
-                    { val: "all", label: "All" },
-                    { val: "free", label: "Free only" },
-                    { val: "paid", label: "Paid only" },
-                  ].map(({ val, label }) => (
-                    <label key={val} className="flex cursor-pointer items-center gap-2 text-xs text-cream/60">
-                      <input
-                        type="radio"
-                        name="price"
-                        value={val}
-                        checked={price === val}
-                        onChange={() => { setPrice(val); handleFilterChange(); }}
-                        className="accent-lime"
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-              </div>
+                </optgroup>
+              </select>
             </div>
-          </aside>
 
-          {/* Events grid */}
-          <section className="lg:col-span-3">
-            {loading && events.length === 0 ? (
-              <div className="flex h-64 items-center justify-center">
-                <p className="font-serif italic text-cream/40">Loading events…</p>
+            {/* Your Scene */}
+            <div className="dd-wrap">
+              <select value={scene} onChange={(e) => handleChange("scene", e.target.value)} style={DD}>
+                {SCENE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Type */}
+            <div className="dd-wrap">
+              <select value={type} onChange={(e) => handleChange("type", e.target.value)} style={DD}>
+                <option value="all">Type</option>
+                {REFINE_TYPES.filter((t) => t.id !== "all").map((t) => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Price */}
+            <div className="dd-wrap">
+              <select value={price} onChange={(e) => handleChange("price", e.target.value)} style={DD}>
+                {PRICE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0 1.5rem", marginBottom: "1.5rem" }}>
+          <span style={{ flex: 1, height: 1, background: "rgba(90,50,20,0.12)" }} />
+          <span style={{ width: 6, height: 6, background: "#7a3a10", transform: "rotate(45deg)", display: "inline-block", opacity: 0.4 }} />
+          <span style={{ flex: 1, height: 1, background: "rgba(90,50,20,0.12)" }} />
+        </div>
+
+        {/* Events area */}
+        <div style={{ flex: 1, maxWidth: 1160, width: "100%", margin: "0 auto", padding: "0 1.25rem 3rem" }}>
+
+          {!hasSearched ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "5rem 1rem", gap: "0.75rem" }}>
+              <span style={{ width: 8, height: 8, background: "#7a3a10", transform: "rotate(45deg)", display: "inline-block", opacity: 0.3 }} />
+              <p style={{
+                fontFamily: "var(--font-cormorant), Georgia, serif",
+                fontSize: "1.05rem", fontStyle: "italic",
+                color: "rgba(74,32,8,0.4)", margin: 0, textAlign: "center",
+              }}>
+                Select a filter above to discover events
+              </p>
+            </div>
+
+          ) : loading && events.length === 0 ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: "4rem" }}>
+              <p style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "1rem", fontStyle: "italic", color: "rgba(74,32,8,0.4)", margin: 0 }}>
+                Loading events…
+              </p>
+            </div>
+
+          ) : events.length === 0 ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: "4rem" }}>
+              <p style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "1rem", fontStyle: "italic", color: "rgba(74,32,8,0.4)", margin: 0 }}>
+                No events found — try adjusting your filters.
+              </p>
+            </div>
+
+          ) : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "0.875rem" }}>
+                {events.map((ev) => <EventCard key={ev.id} event={ev} />)}
               </div>
-            ) : events.length === 0 ? (
-              <div className="flex h-64 items-center justify-center border border-cream/10">
-                <p className="font-serif italic text-cream/40">
-                  No events found — try adjusting the filters.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {events.map((ev) => (
-                    <EventCard key={ev.id} event={ev} />
-                  ))}
+
+              {totalPages > 1 && (
+                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "1.5rem", marginTop: "2.5rem" }}>
+                  <button
+                    onClick={() => doFetch({ ...cur, pg: page - 1 })}
+                    disabled={page <= 1 || loading}
+                    style={{
+                      border: "1px solid rgba(90,50,20,0.25)", background: "rgba(255,248,235,0.6)",
+                      padding: "0.45rem 1.1rem",
+                      fontFamily: "var(--font-josefin), system-ui, sans-serif",
+                      fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase",
+                      color: page <= 1 ? "rgba(74,32,8,0.25)" : "rgba(74,32,8,0.7)",
+                      cursor: page <= 1 ? "not-allowed" : "pointer",
+                    }}
+                  >← Prev</button>
+                  <span style={{ fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(74,32,8,0.4)" }}>
+                    {page} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => doFetch({ ...cur, pg: page + 1 })}
+                    disabled={page >= totalPages || loading}
+                    style={{
+                      border: "1px solid rgba(90,50,20,0.25)", background: "rgba(255,248,235,0.6)",
+                      padding: "0.45rem 1.1rem",
+                      fontFamily: "var(--font-josefin), system-ui, sans-serif",
+                      fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase",
+                      color: page >= totalPages ? "rgba(74,32,8,0.25)" : "rgba(74,32,8,0.7)",
+                      cursor: page >= totalPages ? "not-allowed" : "pointer",
+                    }}
+                  >Next →</button>
                 </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="mt-10 flex items-center justify-center gap-4">
-                    <button
-                      onClick={() => { setPage((p) => p - 1); fetchEvents(page - 1); }}
-                      disabled={page <= 1 || loading}
-                      className="border border-cream/20 px-4 py-2 text-[10px] tracking-widest text-cream/60 uppercase disabled:opacity-30 hover:border-cream/40 hover:text-cream transition-colors"
-                    >
-                      ← Prev
-                    </button>
-                    <span className="text-[10px] tracking-widest text-cream/40 uppercase">
-                      {page} / {totalPages}
-                    </span>
-                    <button
-                      onClick={() => { setPage((p) => p + 1); fetchEvents(page + 1); }}
-                      disabled={page >= totalPages || loading}
-                      className="border border-cream/20 px-4 py-2 text-[10px] tracking-widest text-cream/60 uppercase disabled:opacity-30 hover:border-cream/40 hover:text-cream transition-colors"
-                    >
-                      Next →
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </section>
+              )}
+            </>
+          )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
+// ─── Event Card ────────────────────────────────────────────────────────────────
+
 function EventCard({ event }: { event: Event }) {
-  const date = formatEventDate(event.start_local);
-  const time = formatEventTime(event.start_local);
-  const price = formatPrice(event.is_free, event.price_min, event.price_max);
+  const date     = formatEventDate(event.start_local);
+  const time     = formatEventTime(event.start_local);
+  const priceStr = formatPrice(event.is_free, event.price_min, event.price_max);
+  const isFree   = priceStr === "Free";
+
+  // Always provide a link: prefer the event URL, fall back to a Google search
+  const linkUrl = event.url
+    ? event.url
+    : `https://www.google.com/search?q=${encodeURIComponent(
+        [event.title, event.venue_name, "NYC"].filter(Boolean).join(" ")
+      )}`;
 
   return (
-    <article className="flex flex-col border border-cream/10 bg-forest/20 p-5 transition-all hover:border-lime/30 hover:bg-forest/30">
-      <h3 className="font-body text-sm font-semibold leading-snug tracking-wide text-cream uppercase line-clamp-2">
+    <article
+      className="ev-card"
+      style={{
+        display: "flex", flexDirection: "column",
+        border: "1px solid rgba(90,50,20,0.18)",
+        background: "rgba(255,248,235,0.62)",
+        backdropFilter: "blur(4px)",
+        padding: "1rem 1.15rem",
+      }}
+    >
+      <h3 style={{
+        margin: "0 0 0.65rem",
+        fontFamily: "var(--font-josefin), system-ui, sans-serif",
+        fontSize: "0.76rem", fontWeight: 600,
+        letterSpacing: "0.1em", textTransform: "uppercase",
+        color: "#3a1800", lineHeight: 1.35,
+        display: "-webkit-box", WebkitLineClamp: 2,
+        WebkitBoxOrient: "vertical", overflow: "hidden",
+      }}>
         {event.title}
       </h3>
 
-      <div className="mt-3 space-y-1 font-serif text-sm text-cream/50">
-        <p>
-          <span className="text-cream/80">{date}</span>
-          {time && <span className="italic"> · {time}</span>}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+        <p style={{ margin: 0, fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "0.88rem", color: "rgba(58,24,0,0.75)" }}>
+          <span style={{ fontWeight: 600 }}>{date}</span>
+          {time && <span style={{ fontStyle: "italic" }}> · {time}</span>}
         </p>
-        {event.borough && (
-          <p className="text-[11px] tracking-wider uppercase text-cream/40">
-            {event.borough}
+
+        {event.venue_name && (
+          <p style={{ margin: 0, fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "0.82rem", fontStyle: "italic", color: "rgba(58,24,0,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {event.venue_name}
           </p>
         )}
-        {event.venue_name && (
-          <p className="text-xs italic line-clamp-1 text-cream/50">
-            {event.venue_name}
+
+        {event.borough && (
+          <p style={{ margin: 0, fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.56rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(58,24,0,0.38)" }}>
+            {event.borough}
           </p>
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-cream/10 pt-4">
-        <span className={`text-sm font-semibold tracking-wide uppercase ${
-          price === "Free" ? "text-lime" : "text-cream/70"
-        }`}>
-          {price}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "0.8rem", paddingTop: "0.8rem", borderTop: "1px solid rgba(90,50,20,0.1)" }}>
+        <span style={{ fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: isFree ? "#2a6e2a" : "rgba(58,24,0,0.6)" }}>
+          {priceStr}
         </span>
-        {event.url ? (
-          <a
-            href={event.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-lime px-4 py-1.5 text-[10px] font-semibold tracking-widest text-ink uppercase transition-colors hover:bg-lime-hover"
-          >
-            Details →
-          </a>
-        ) : (
-          <span className="text-xs text-cream/30">No link</span>
-        )}
+        <a
+          href={linkUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="details-btn"
+          style={{ background: "#7a3a10", color: "#fdf6ee", padding: "0.3rem 0.8rem", fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.56rem", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", textDecoration: "none", transition: "background 0.2s" }}
+        >
+          {event.url ? "Details →" : "Search →"}
+        </a>
       </div>
     </article>
   );
