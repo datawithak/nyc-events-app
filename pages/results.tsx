@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
@@ -10,7 +10,6 @@ import type { Event } from "@/lib/types";
 
 const BOROUGHS = ["Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island"];
 
-// Sub-neighborhoods per borough (expand over time)
 const NEIGHBORHOODS: Record<string, string[]> = {
   Manhattan: [
     "Hudson Yards",
@@ -72,17 +71,17 @@ const PRICE_OPTIONS = [
   { value: "paid", label: "Paid" },
 ];
 
-// Shared dropdown style
+// Shared dropdown style — forest green palette
 const DD: React.CSSProperties = {
-  border: "1px solid rgba(90,50,20,0.3)",
-  background: "rgba(255,248,235,0.75)",
+  border: "1px solid rgba(30,70,40,0.3)",
+  background: "rgba(240,248,242,0.75)",
   backdropFilter: "blur(4px)",
   padding: "0.55rem 2rem 0.55rem 0.85rem",
   fontFamily: "var(--font-josefin), system-ui, sans-serif",
   fontSize: "clamp(0.58rem, 1.6vw, 0.7rem)",
   letterSpacing: "0.14em",
   textTransform: "uppercase",
-  color: "#4a2008",
+  color: "#1a3a2a",
   cursor: "pointer",
   appearance: "none",
   WebkitAppearance: "none",
@@ -95,12 +94,16 @@ const DD: React.CSSProperties = {
 export default function Results() {
   const router = useRouter();
 
-  // Filter state — two-step: pick borough first, then optional sub-neighborhood
-  const [borough, setBorough]       = useState("");
+  // Filter state
+  const [borough, setBorough]           = useState("");
   const [neighborhood, setNeighborhood] = useState("");
-  const [scene, setScene]           = useState("");
-  const [type, setType]             = useState("all");
-  const [price, setPrice]           = useState("all");
+  const [scene, setScene]               = useState("");
+  const [type, setType]                 = useState("all");
+  const [price, setPrice]               = useState("all");
+  const [query, setQuery]               = useState("");
+
+  // Search input ref for controlled input
+  const searchRef = useRef<HTMLInputElement>(null);
 
   // Derived API location param
   function locationParam(b: string, n: string) {
@@ -109,21 +112,21 @@ export default function Results() {
   }
 
   // Results
-  const [events, setEvents]         = useState<Event[]>([]);
-  const [total, setTotal]           = useState(0);
-  const [page, setPage]             = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading]       = useState(false);
+  const [events, setEvents]           = useState<Event[]>([]);
+  const [total, setTotal]             = useState(0);
+  const [page, setPage]               = useState(1);
+  const [totalPages, setTotalPages]   = useState(1);
+  const [loading, setLoading]         = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
-  function isDefault(f: { borough: string; neighborhood: string; scene: string; type: string; price: string }) {
-    return !f.borough && !f.neighborhood && !f.scene && f.type === "all" && f.price === "all";
+  function isDefault(f: { borough: string; neighborhood: string; scene: string; type: string; price: string; query: string }) {
+    return !f.borough && !f.neighborhood && !f.scene && f.type === "all" && f.price === "all" && !f.query.trim();
   }
 
   async function doFetch(opts: {
-    borough: string; neighborhood: string; scene: string; type: string; price: string; pg: number;
+    borough: string; neighborhood: string; scene: string; type: string; price: string; query: string; pg: number;
   }) {
     if (isDefault(opts)) {
       setEvents([]); setTotal(0); setHasSearched(false);
@@ -134,10 +137,11 @@ export default function Results() {
     try {
       const p = new URLSearchParams({ limit: "24", offset: String((opts.pg - 1) * 24) });
       const loc = locationParam(opts.borough, opts.neighborhood);
-      if (loc) p.set("borough", loc);
-      if (opts.scene) p.set("scene", opts.scene);
+      if (loc)             p.set("borough", loc);
+      if (opts.scene)      p.set("scene", opts.scene);
       if (opts.type !== "all") p.set("type", opts.type);
       if (opts.price !== "all") p.set("price", opts.price);
+      if (opts.query.trim()) p.set("q", opts.query.trim());
 
       const res  = await fetch(`/api/events?${p}`);
       const data = await res.json();
@@ -152,55 +156,54 @@ export default function Results() {
     }
   }
 
-  // Borough change — clears neighborhood since sub-neighborhoods are borough-specific
   function handleBoroughChange(value: string) {
     setBorough(value);
     setNeighborhood("");
-    const next = { borough: value, neighborhood: "", scene, type, price };
-    doFetch({ ...next, pg: 1 });
+    doFetch({ borough: value, neighborhood: "", scene, type, price, query, pg: 1 });
   }
 
-  // Neighborhood change — keeps current borough
   function handleNeighborhoodChange(value: string) {
     setNeighborhood(value);
-    const next = { borough, neighborhood: value, scene, type, price };
-    doFetch({ ...next, pg: 1 });
+    doFetch({ borough, neighborhood: value, scene, type, price, query, pg: 1 });
   }
 
-  // Generic change for scene/type/price
   function handleChange(field: "scene" | "type" | "price", value: string) {
     const next = {
       borough, neighborhood,
       scene: field === "scene" ? value : scene,
       type:  field === "type"  ? value : type,
       price: field === "price" ? value : price,
+      query,
     };
     setScene(next.scene); setType(next.type); setPrice(next.price);
     doFetch({ ...next, pg: 1 });
   }
 
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const q = searchRef.current?.value ?? "";
+    setQuery(q);
+    doFetch({ borough, neighborhood, scene, type, price, query: q, pg: 1 });
+  }
+
   // ── Sync URL params → state & auto-fetch when URL changes ───────────────────
-  // Use router.asPath (not router.isReady) as the dependency so this re-fires
-  // on every client-side navigation. When router.isReady is already true on
-  // mount (happens with <Link> navigation), [router.isReady] would never change
-  // again, leaving the previous route's stale query in effect.
   useEffect(() => {
     if (!router.isReady) return;
     const s = (router.query.scene as string) || "";
     const t = (router.query.type  as string) || "all";
     const b = (router.query.borough as string) || "";
 
-    setScene(s); setType(t); setBorough(b); setNeighborhood("");
+    setScene(s); setType(t); setBorough(b); setNeighborhood(""); setQuery("");
+    if (searchRef.current) searchRef.current.value = "";
 
     if (s || t !== "all" || b) {
-      doFetch({ borough: b, neighborhood: "", scene: s, type: t, price: "all", pg: 1 });
+      doFetch({ borough: b, neighborhood: "", scene: s, type: t, price: "all", query: "", pg: 1 });
     } else {
-      // Navigated to /results with no params — reset to the "pick a filter" state
       setEvents([]); setTotal(0); setHasSearched(false);
     }
   }, [router.asPath]); // eslint-disable-line
 
-  const cur = { borough, neighborhood, scene, type, price };
+  const cur = { borough, neighborhood, scene, type, price, query };
   const subNeighborhoods = NEIGHBORHOODS[borough] ?? [];
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -213,25 +216,27 @@ export default function Results() {
 
       <style>{`
         html, body, #__next, #__next > div { margin: 0; padding: 0; width: 100%; }
-        select option, select optgroup { background: #fff8f0; color: #4a2008; }
+        select option, select optgroup { background: #f0f8f2; color: #1a3a2a; }
         .dd-wrap { position: relative; display: inline-block; }
         .dd-wrap::after {
           content: "▾"; position: absolute; right: 0.6rem; top: 50%;
           transform: translateY(-50%); pointer-events: none;
-          color: #7a3a10; font-size: 0.6rem;
+          color: #3a6642; font-size: 0.6rem;
         }
         .ev-card { transition: border-color 0.2s, background 0.2s; }
-        .ev-card:hover { border-color: rgba(122,58,16,0.5) !important; background: rgba(255,248,235,0.88) !important; }
-        .details-btn:hover { background: #5c2a08 !important; }
+        .ev-card:hover { border-color: rgba(40,90,50,0.5) !important; background: rgba(240,248,242,0.92) !important; }
+        .details-btn:hover { background: #2a5035 !important; }
+        .search-input::placeholder { color: rgba(20,60,30,0.38); }
+        .search-input:focus { outline: none; border-color: rgba(40,90,50,0.55) !important; }
       `}</style>
 
-      {/* Background — results keeps the original warm watermark */}
-      <div aria-hidden="true" style={{ position: "fixed", inset: 0, background: "#fdf6ee", zIndex: 0 }} />
+      {/* Background — sage green palette */}
+      <div aria-hidden="true" style={{ position: "fixed", inset: 0, background: "#f4f7f0", zIndex: 0 }} />
       <div aria-hidden="true" style={{
         position: "fixed", inset: 0,
-        backgroundImage: "url('/watermark-bg.jpg')",
+        backgroundImage: "url('/home-bg.jpg')",
         backgroundSize: "cover", backgroundPosition: "center",
-        opacity: 0.2, zIndex: 1, pointerEvents: "none",
+        opacity: 0.4, zIndex: 1, pointerEvents: "none",
       }} />
 
       {/* Page */}
@@ -239,8 +244,8 @@ export default function Results() {
 
         {/* Header */}
         <header style={{
-          borderBottom: "1px solid rgba(90,50,20,0.15)",
-          background: "rgba(253,246,238,0.85)",
+          borderBottom: "1px solid rgba(30,70,40,0.15)",
+          background: "rgba(244,247,240,0.88)",
           backdropFilter: "blur(8px)",
           padding: "0.875rem 1.5rem",
           display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -248,7 +253,7 @@ export default function Results() {
           <Link href="/home" style={{
             fontFamily: "var(--font-josefin), system-ui, sans-serif",
             fontSize: "0.62rem", letterSpacing: "0.28em",
-            textTransform: "uppercase", color: "rgba(74,32,8,0.65)",
+            textTransform: "uppercase", color: "rgba(20,60,30,0.65)",
             textDecoration: "none",
           }}>
             ← Metropolitan
@@ -256,7 +261,7 @@ export default function Results() {
           <span style={{
             fontFamily: "var(--font-josefin), system-ui, sans-serif",
             fontSize: "0.6rem", letterSpacing: "0.22em",
-            textTransform: "uppercase", color: "rgba(74,32,8,0.4)",
+            textTransform: "uppercase", color: "rgba(20,60,30,0.4)",
           }}>
             {loading ? "Loading…" : hasSearched ? `${total.toLocaleString()} events` : ""}
           </span>
@@ -269,15 +274,52 @@ export default function Results() {
             fontFamily: "var(--font-cormorant), Georgia, serif",
             fontSize: "clamp(0.95rem, 2.5vw, 1.15rem)",
             fontStyle: "italic",
-            color: "rgba(74,32,8,0.6)",
+            color: "rgba(20,60,30,0.6)",
           }}>
             Choose your filters to explore events
           </p>
 
-          {/* Dropdowns — Borough first, then neighborhood if available, then filters */}
+          {/* Search bar */}
+          <form onSubmit={handleSearch} style={{ width: "100%", maxWidth: 480, display: "flex", gap: "0.5rem" }}>
+            <input
+              ref={searchRef}
+              type="text"
+              className="search-input"
+              placeholder="Search events, venues, artists…"
+              defaultValue={query}
+              style={{
+                flex: 1,
+                border: "1px solid rgba(30,70,40,0.3)",
+                background: "rgba(240,248,242,0.75)",
+                backdropFilter: "blur(4px)",
+                padding: "0.55rem 0.85rem",
+                fontFamily: "var(--font-josefin), system-ui, sans-serif",
+                fontSize: "clamp(0.58rem, 1.6vw, 0.7rem)",
+                letterSpacing: "0.1em",
+                color: "#1a3a2a",
+                outline: "none",
+                transition: "border-color 0.2s",
+              }}
+            />
+            <button type="submit" style={{
+              border: "1px solid rgba(30,70,40,0.3)",
+              background: "#3a6642",
+              color: "#f4f7f0",
+              padding: "0.55rem 1.1rem",
+              fontFamily: "var(--font-josefin), system-ui, sans-serif",
+              fontSize: "0.6rem", letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              transition: "background 0.2s",
+            }}>
+              Search
+            </button>
+          </form>
+
+          {/* Dropdowns */}
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0.625rem" }}>
 
-            {/* Step 1: Borough */}
+            {/* Borough */}
             <div className="dd-wrap">
               <select value={borough} onChange={(e) => handleBoroughChange(e.target.value)} style={DD}>
                 <option value="">Borough</option>
@@ -287,7 +329,7 @@ export default function Results() {
               </select>
             </div>
 
-            {/* Step 2: Neighborhood — only shown when the selected borough has sub-neighborhoods */}
+            {/* Neighborhood — only shown when borough has sub-neighborhoods */}
             {subNeighborhoods.length > 0 && (
               <div className="dd-wrap">
                 <select value={neighborhood} onChange={(e) => handleNeighborhoodChange(e.target.value)} style={DD}>
@@ -299,7 +341,7 @@ export default function Results() {
               </div>
             )}
 
-            {/* Your Scene */}
+            {/* Scene */}
             <div className="dd-wrap">
               <select value={scene} onChange={(e) => handleChange("scene", e.target.value)} style={DD}>
                 {SCENE_OPTIONS.map((o) => (
@@ -332,9 +374,9 @@ export default function Results() {
 
         {/* Divider */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0 1.5rem", marginBottom: "1.5rem" }}>
-          <span style={{ flex: 1, height: 1, background: "rgba(90,50,20,0.12)" }} />
-          <span style={{ width: 6, height: 6, background: "#7a3a10", transform: "rotate(45deg)", display: "inline-block", opacity: 0.4 }} />
-          <span style={{ flex: 1, height: 1, background: "rgba(90,50,20,0.12)" }} />
+          <span style={{ flex: 1, height: 1, background: "rgba(30,70,40,0.12)" }} />
+          <span style={{ width: 6, height: 6, background: "#3a6642", transform: "rotate(45deg)", display: "inline-block", opacity: 0.4 }} />
+          <span style={{ flex: 1, height: 1, background: "rgba(30,70,40,0.12)" }} />
         </div>
 
         {/* Events area */}
@@ -342,26 +384,34 @@ export default function Results() {
 
           {!hasSearched ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "5rem 1rem", gap: "0.75rem" }}>
-              <span style={{ width: 8, height: 8, background: "#7a3a10", transform: "rotate(45deg)", display: "inline-block", opacity: 0.3 }} />
+              <span style={{ width: 8, height: 8, background: "#3a6642", transform: "rotate(45deg)", display: "inline-block", opacity: 0.3 }} />
               <p style={{
                 fontFamily: "var(--font-cormorant), Georgia, serif",
                 fontSize: "1.05rem", fontStyle: "italic",
-                color: "rgba(74,32,8,0.4)", margin: 0, textAlign: "center",
+                color: "rgba(20,60,30,0.4)", margin: 0, textAlign: "center",
               }}>
-                Select a filter above to discover events
+                Select a filter or search above to discover events
+              </p>
+              <p style={{
+                fontFamily: "var(--font-josefin), system-ui, sans-serif",
+                fontSize: "0.58rem", letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "rgba(20,60,30,0.3)", margin: 0, textAlign: "center",
+              }}>
+                Tip: combine filters — e.g. search "jazz" with Scene → With Kids
               </p>
             </div>
 
           ) : loading && events.length === 0 ? (
             <div style={{ display: "flex", justifyContent: "center", padding: "4rem" }}>
-              <p style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "1rem", fontStyle: "italic", color: "rgba(74,32,8,0.4)", margin: 0 }}>
+              <p style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "1rem", fontStyle: "italic", color: "rgba(20,60,30,0.4)", margin: 0 }}>
                 Loading events…
               </p>
             </div>
 
           ) : events.length === 0 ? (
             <div style={{ display: "flex", justifyContent: "center", padding: "4rem" }}>
-              <p style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "1rem", fontStyle: "italic", color: "rgba(74,32,8,0.4)", margin: 0 }}>
+              <p style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "1rem", fontStyle: "italic", color: "rgba(20,60,30,0.4)", margin: 0 }}>
                 No events found — try adjusting your filters.
               </p>
             </div>
@@ -376,30 +426,28 @@ export default function Results() {
                 <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "1.5rem", marginTop: "2.5rem" }}>
                   <button
                     onClick={() => doFetch({ ...cur, pg: page - 1 })}
-
                     disabled={page <= 1 || loading}
                     style={{
-                      border: "1px solid rgba(90,50,20,0.25)", background: "rgba(255,248,235,0.6)",
+                      border: "1px solid rgba(30,70,40,0.25)", background: "rgba(240,248,242,0.6)",
                       padding: "0.45rem 1.1rem",
                       fontFamily: "var(--font-josefin), system-ui, sans-serif",
                       fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase",
-                      color: page <= 1 ? "rgba(74,32,8,0.25)" : "rgba(74,32,8,0.7)",
+                      color: page <= 1 ? "rgba(20,60,30,0.25)" : "rgba(20,60,30,0.7)",
                       cursor: page <= 1 ? "not-allowed" : "pointer",
                     }}
                   >← Prev</button>
-                  <span style={{ fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(74,32,8,0.4)" }}>
+                  <span style={{ fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(20,60,30,0.4)" }}>
                     {page} / {totalPages}
                   </span>
                   <button
                     onClick={() => doFetch({ ...cur, pg: page + 1 })}
-
                     disabled={page >= totalPages || loading}
                     style={{
-                      border: "1px solid rgba(90,50,20,0.25)", background: "rgba(255,248,235,0.6)",
+                      border: "1px solid rgba(30,70,40,0.25)", background: "rgba(240,248,242,0.6)",
                       padding: "0.45rem 1.1rem",
                       fontFamily: "var(--font-josefin), system-ui, sans-serif",
                       fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase",
-                      color: page >= totalPages ? "rgba(74,32,8,0.25)" : "rgba(74,32,8,0.7)",
+                      color: page >= totalPages ? "rgba(20,60,30,0.25)" : "rgba(20,60,30,0.7)",
                       cursor: page >= totalPages ? "not-allowed" : "pointer",
                     }}
                   >Next →</button>
@@ -421,7 +469,6 @@ function EventCard({ event }: { event: Event }) {
   const priceStr = formatPrice(event.is_free, event.price_min, event.price_max);
   const isFree   = priceStr === "Free";
 
-  // Always provide a link: prefer the event URL, fall back to a Google search
   const linkUrl = event.url
     ? event.url
     : `https://www.google.com/search?q=${encodeURIComponent(
@@ -433,8 +480,8 @@ function EventCard({ event }: { event: Event }) {
       className="ev-card"
       style={{
         display: "flex", flexDirection: "column",
-        border: "1px solid rgba(90,50,20,0.18)",
-        background: "rgba(255,248,235,0.62)",
+        border: "1px solid rgba(30,70,40,0.18)",
+        background: "rgba(240,248,242,0.62)",
         backdropFilter: "blur(4px)",
         padding: "1rem 1.15rem",
       }}
@@ -444,7 +491,7 @@ function EventCard({ event }: { event: Event }) {
         fontFamily: "var(--font-josefin), system-ui, sans-serif",
         fontSize: "0.76rem", fontWeight: 600,
         letterSpacing: "0.1em", textTransform: "uppercase",
-        color: "#3a1800", lineHeight: 1.35,
+        color: "#1a3a2a", lineHeight: 1.35,
         display: "-webkit-box", WebkitLineClamp: 2,
         WebkitBoxOrient: "vertical", overflow: "hidden",
       }}>
@@ -452,26 +499,26 @@ function EventCard({ event }: { event: Event }) {
       </h3>
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-        <p style={{ margin: 0, fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "0.88rem", color: "rgba(58,24,0,0.75)" }}>
+        <p style={{ margin: 0, fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "0.88rem", color: "rgba(20,60,30,0.75)" }}>
           <span style={{ fontWeight: 600 }}>{date}</span>
           {time && <span style={{ fontStyle: "italic" }}> · {time}</span>}
         </p>
 
         {event.venue_name && (
-          <p style={{ margin: 0, fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "0.82rem", fontStyle: "italic", color: "rgba(58,24,0,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <p style={{ margin: 0, fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "0.82rem", fontStyle: "italic", color: "rgba(20,60,30,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {event.venue_name}
           </p>
         )}
 
         {event.borough && (
-          <p style={{ margin: 0, fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.56rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(58,24,0,0.38)" }}>
+          <p style={{ margin: 0, fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.56rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(20,60,30,0.38)" }}>
             {event.borough}
           </p>
         )}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "0.8rem", paddingTop: "0.8rem", borderTop: "1px solid rgba(90,50,20,0.1)" }}>
-        <span style={{ fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: isFree ? "#2a6e2a" : "rgba(58,24,0,0.6)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "0.8rem", paddingTop: "0.8rem", borderTop: "1px solid rgba(30,70,40,0.1)" }}>
+        <span style={{ fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: isFree ? "#2a6e2a" : "rgba(20,60,30,0.6)" }}>
           {priceStr}
         </span>
         <a
@@ -479,7 +526,7 @@ function EventCard({ event }: { event: Event }) {
           target="_blank"
           rel="noopener noreferrer"
           className="details-btn"
-          style={{ background: "#7a3a10", color: "#fdf6ee", padding: "0.3rem 0.8rem", fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.56rem", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", textDecoration: "none", transition: "background 0.2s" }}
+          style={{ background: "#3a6642", color: "#f4f7f0", padding: "0.3rem 0.8rem", fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.56rem", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", textDecoration: "none", transition: "background 0.2s" }}
         >
           {event.url ? "Details →" : "Search →"}
         </a>
