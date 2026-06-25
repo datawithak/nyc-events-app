@@ -187,21 +187,35 @@ export default function Results() {
   }
 
   // ── Sync URL params → state & auto-fetch when URL changes ───────────────────
+  // Depend on both asPath AND isReady: asPath re-fires on every client-side nav;
+  // isReady re-fires once when it flips true on initial load.
   useEffect(() => {
     if (!router.isReady) return;
-    const s = (router.query.scene as string) || "";
-    const t = (router.query.type  as string) || "all";
+    const s = (router.query.scene   as string) || "";
+    const t = (router.query.type    as string) || "all";
     const b = (router.query.borough as string) || "";
+    const p = (router.query.price   as string) || "all";
 
-    setScene(s); setType(t); setBorough(b); setNeighborhood(""); setQuery("");
+    setScene(s); setType(t); setBorough(b); setNeighborhood("");
+    setPrice(p); setQuery("");
     if (searchRef.current) searchRef.current.value = "";
 
-    if (s || t !== "all" || b) {
-      doFetch({ borough: b, neighborhood: "", scene: s, type: t, price: "all", query: "", pg: 1 });
+    if (s || t !== "all" || b || p !== "all") {
+      doFetch({ borough: b, neighborhood: "", scene: s, type: t, price: p, query: "", pg: 1 });
     } else {
       setEvents([]); setTotal(0); setHasSearched(false);
     }
-  }, [router.asPath]); // eslint-disable-line
+  }, [router.asPath, router.isReady]); // eslint-disable-line
+
+  // ── Clear all filters ─────────────────────────────────────────────────────
+  function clearAll() {
+    setBorough(""); setNeighborhood(""); setScene("");
+    setType("all"); setPrice("all"); setQuery("");
+    if (searchRef.current) searchRef.current.value = "";
+    setEvents([]); setTotal(0); setHasSearched(false);
+    // Replace history so back-button goes to home, not the filtered URL
+    router.replace("/results", undefined, { shallow: true });
+  }
 
   const cur = { borough, neighborhood, scene, type, price, query };
   const subNeighborhoods = NEIGHBORHOODS[borough] ?? [];
@@ -258,13 +272,35 @@ export default function Results() {
           }}>
             ← Metropolitan
           </Link>
-          <span style={{
-            fontFamily: "var(--font-josefin), system-ui, sans-serif",
-            fontSize: "0.6rem", letterSpacing: "0.22em",
-            textTransform: "uppercase", color: "rgba(20,60,30,0.4)",
-          }}>
-            {loading ? "Loading…" : hasSearched ? `${total.toLocaleString()} events` : ""}
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <span style={{
+              fontFamily: "var(--font-josefin), system-ui, sans-serif",
+              fontSize: "0.6rem", letterSpacing: "0.22em",
+              textTransform: "uppercase", color: "rgba(20,60,30,0.4)",
+            }}>
+              {loading ? "Loading…" : hasSearched ? `${total.toLocaleString()} events` : ""}
+            </span>
+            {hasSearched && (
+              <button
+                onClick={clearAll}
+                style={{
+                  border: "1px solid rgba(30,70,40,0.25)",
+                  background: "transparent",
+                  padding: "0.3rem 0.7rem",
+                  fontFamily: "var(--font-josefin), system-ui, sans-serif",
+                  fontSize: "0.56rem", letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "rgba(20,60,30,0.55)",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(30,70,40,0.5)"; (e.currentTarget as HTMLButtonElement).style.color = "#1a3a2a"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(30,70,40,0.25)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(20,60,30,0.55)"; }}
+              >
+                × Clear
+              </button>
+            )}
+          </div>
         </header>
 
         {/* Filter bar */}
