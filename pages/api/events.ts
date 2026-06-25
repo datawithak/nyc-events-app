@@ -57,7 +57,9 @@ const NEIGHBORHOOD_ZIPS: Record<string, string[]> = {
 // "with-kids" now also catches outdoor/parks/festival events which are
 // naturally family-friendly even without explicit audience tags.
 const SCENE_MAP: Record<string, { audiences?: string[]; categories?: string[] }> = {
-  "friends-night":  { categories: ["music", "comedy", "food_drink", "nightlife", "electronic", "dance"] },
+  // "nightlife" removed — too broad, catches playground "PARTY" permits.
+  // Legitimate nightlife events from RA are also tagged "electronic"/"music"/"dance".
+  "friends-night":  { categories: ["music", "comedy", "food_drink", "electronic", "dance"] },
   "with-kids": {
     audiences: ["kids", "family", "parents"],
     categories: ["outdoor", "parks", "festival", "community", "public", "family", "children", "education"],
@@ -69,7 +71,9 @@ const SCENE_MAP: Record<string, { audiences?: string[]; categories?: string[] }>
 // ── Type map ─────────────────────────────────────────────────────────────────
 const TYPE_MAP: Record<string, { categories?: string[] }> = {
   music:            { categories: ["music", "rock", "pop", "jazz", "alternative", "hip-hop", "r&b", "country", "classical", "folk"] },
-  electronic:       { categories: ["electronic", "nightlife", "dance", "edm", "house", "techno", "drum and bass", "dnb", "trance", "dubstep", "club"] },
+  // "nightlife" alone is too broad (catches playground "PARTY" permits from NYC Open Data).
+  // RA events are also tagged "electronic" and "music" so they still surface without it.
+  electronic:       { categories: ["electronic", "dance", "edm", "house", "techno", "drum and bass", "dnb", "trance", "dubstep", "club night", "nightclub"] },
   "art-culture":    { categories: ["arts", "arts & theatre", "gallery", "exhibition"] },
   "food-drink":     { categories: ["food_drink", "food & drink"] },
   theater:          { categories: ["theater", "theatre", "musical"] },
