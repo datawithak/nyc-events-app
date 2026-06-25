@@ -52,13 +52,21 @@ const NEIGHBORHOOD_ZIPS: Record<string, string[]> = {
   "Ridgewood":         ["11385"],
 };
 
+// ── Scene map ────────────────────────────────────────────────────────────────
+// Expanded to match both explicit audience tags AND family-friendly categories.
+// "with-kids" now also catches outdoor/parks/festival events which are
+// naturally family-friendly even without explicit audience tags.
 const SCENE_MAP: Record<string, { audiences?: string[]; categories?: string[] }> = {
   "friends-night":  { categories: ["music", "comedy", "food_drink", "nightlife", "electronic", "dance"] },
-  "with-kids":      { audiences: ["kids", "family", "parents"] },
+  "with-kids": {
+    audiences: ["kids", "family", "parents"],
+    categories: ["outdoor", "parks", "festival", "community", "public", "family", "children", "education"],
+  },
   "date-night":     { categories: ["theater", "arts", "film"] },
   solo:             { categories: ["arts", "outdoor", "film", "education"] },
 };
 
+// ── Type map ─────────────────────────────────────────────────────────────────
 const TYPE_MAP: Record<string, { categories?: string[] }> = {
   music:            { categories: ["music", "rock", "pop", "jazz", "alternative", "hip-hop", "r&b", "country", "classical", "folk"] },
   electronic:       { categories: ["electronic", "nightlife", "dance", "edm", "house", "techno", "drum and bass", "dnb", "trance", "dubstep", "club"] },
@@ -69,9 +77,23 @@ const TYPE_MAP: Record<string, { categories?: string[] }> = {
   film:             { categories: ["film"] },
   "sports-fitness": { categories: ["sports", "fitness", "wellness"] },
   outdoor:          { categories: ["outdoor", "parks"] },
-  markets:          { categories: ["markets"] },
+  markets:          { categories: ["markets", "festival"] },
   "kids-family":    { categories: ["kids", "family", "children"] },
 };
+
+// ── Date helpers ─────────────────────────────────────────────────────────────
+// Returns YYYY-MM-DD for a date offset from today in New York time.
+function nyDateStr(daysOffset = 0): string {
+  const nowNY = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
+  );
+  nowNY.setDate(nowNY.getDate() + daysOffset);
+  return [
+    nowNY.getFullYear(),
+    String(nowNY.getMonth() + 1).padStart(2, "0"),
+    String(nowNY.getDate()).padStart(2, "0"),
+  ].join("-");
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).end();
@@ -81,6 +103,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     type,
     borough,
     price,
+    date,
     q,
     limit: limitQ = String(PER_PAGE),
     offset: offsetQ = "0",
@@ -102,7 +125,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ── Location filter ───────────────────────────────────────────────────────
     if (borough && borough !== "All Neighborhoods" && borough !== "") {
       if (borough.startsWith("nbhd:")) {
-        // Sub-neighborhood: filter by ZIP codes in address field
         const nbhd = borough.replace("nbhd:", "");
         const zips = NEIGHBORHOOD_ZIPS[nbhd] ?? [];
         if (zips.length > 0) {
@@ -110,14 +132,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           query = query.or(zipParts.join(","));
         }
       } else {
-        // Full borough
         query = query.eq("borough", borough);
       }
     }
 
     // ── Price filter ──────────────────────────────────────────────────────────
+    // Include both is_free=1 AND price_min=0 (catches events where price data
+    // exists but is_free wasn't explicitly set to true by the scraper).
     if (price === "free") {
-      query = query.eq("is_free", 1);
+      query = query.or("is_free.eq.1,price_min.eq.0");
     } else if (price === "paid") {
       query = query.neq("is_free", 1);
     }
@@ -127,6 +150,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       query = query.or(
         `title.ilike.%${q}%,description.ilike.%${q}%,venue_name.ilike.%${q}%`
       );
+    }
+
+    // ── Date filter ───────────────────────────────────────────────────────────
+    // Uses start_local (NY timezone ISO string) for date-level comparisons.
+    // String comparison works because start_local is YYYY-MM-DD... formatted.
+    if (date && date !== "all") {
+      const today = nyDateStr(0);
+      const tomorrow = nyDateStr(1);
+
+      if (date === "today") {
+        query = query.gte("start_local", today).lt("start_local", tomorrow);
+      } else if (date === "tomorrow") {
+        query = query.gte("start_local", tomorrow).lt("start_local", nyDateStr(2));
+      } else if (date === "weekend") {
+        // Find the upcoming Saturday (or today if it's Saturday)
+        const nowNY = new Date(
+          new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
+        );
+        const dayOfWeek = nowNY.getDay(); // 0=Sun, 1=Mon … 6=Sat
+        // days until Saturday (0 if today is Sat, 1 if today is Sun so next Sat is 6 days)
+        const daysToSat = dayOfWeek === 6 ? 0 : (6 - dayOfWeek) % 7;
+        // If today is Sunday (0), daysToSat = 6, but we want THIS weekend = today + tomorrow
+        const satStr = dayOfWeek === 0 ? today : nyDateStr(daysToSat);
+        const monStr = dayOfWeek === 0 ? tomorrow : nyDateStr(daysToSat + 2);
+        query = query.gte("start_local", satStr).lt("start_local", monStr);
+      } else if (date === "week") {
+        query = query.lt("start_local", nyDateStr(7));
+      } else if (date === "month") {
+        query = query.lt("start_local", nyDateStr(30));
+      }
     }
 
     // ── Scene filter ──────────────────────────────────────────────────────────

@@ -71,6 +71,15 @@ const PRICE_OPTIONS = [
   { value: "paid", label: "Paid" },
 ];
 
+const DATE_OPTIONS = [
+  { value: "all", label: "Any Date" },
+  { value: "today", label: "Today" },
+  { value: "tomorrow", label: "Tomorrow" },
+  { value: "weekend", label: "This Weekend" },
+  { value: "week", label: "This Week" },
+  { value: "month", label: "This Month" },
+];
+
 // Shared dropdown style — forest green palette
 const DD: React.CSSProperties = {
   border: "1px solid rgba(30,70,40,0.3)",
@@ -100,6 +109,7 @@ export default function Results() {
   const [scene, setScene]               = useState("");
   const [type, setType]                 = useState("all");
   const [price, setPrice]               = useState("all");
+  const [date, setDate]                 = useState("all");
   const [query, setQuery]               = useState("");
 
   // Search input ref for controlled input
@@ -121,12 +131,12 @@ export default function Results() {
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
-  function isDefault(f: { borough: string; neighborhood: string; scene: string; type: string; price: string; query: string }) {
-    return !f.borough && !f.neighborhood && !f.scene && f.type === "all" && f.price === "all" && !f.query.trim();
+  function isDefault(f: { borough: string; neighborhood: string; scene: string; type: string; price: string; date: string; query: string }) {
+    return !f.borough && !f.neighborhood && !f.scene && f.type === "all" && f.price === "all" && f.date === "all" && !f.query.trim();
   }
 
   async function doFetch(opts: {
-    borough: string; neighborhood: string; scene: string; type: string; price: string; query: string; pg: number;
+    borough: string; neighborhood: string; scene: string; type: string; price: string; date: string; query: string; pg: number;
   }) {
     if (isDefault(opts)) {
       setEvents([]); setTotal(0); setHasSearched(false);
@@ -137,11 +147,12 @@ export default function Results() {
     try {
       const p = new URLSearchParams({ limit: "24", offset: String((opts.pg - 1) * 24) });
       const loc = locationParam(opts.borough, opts.neighborhood);
-      if (loc)             p.set("borough", loc);
-      if (opts.scene)      p.set("scene", opts.scene);
-      if (opts.type !== "all") p.set("type", opts.type);
-      if (opts.price !== "all") p.set("price", opts.price);
-      if (opts.query.trim()) p.set("q", opts.query.trim());
+      if (loc)                   p.set("borough", loc);
+      if (opts.scene)            p.set("scene", opts.scene);
+      if (opts.type !== "all")   p.set("type", opts.type);
+      if (opts.price !== "all")  p.set("price", opts.price);
+      if (opts.date !== "all")   p.set("date", opts.date);
+      if (opts.query.trim())     p.set("q", opts.query.trim());
 
       const res  = await fetch(`/api/events?${p}`);
       const data = await res.json();
@@ -159,23 +170,24 @@ export default function Results() {
   function handleBoroughChange(value: string) {
     setBorough(value);
     setNeighborhood("");
-    doFetch({ borough: value, neighborhood: "", scene, type, price, query, pg: 1 });
+    doFetch({ borough: value, neighborhood: "", scene, type, price, date, query, pg: 1 });
   }
 
   function handleNeighborhoodChange(value: string) {
     setNeighborhood(value);
-    doFetch({ borough, neighborhood: value, scene, type, price, query, pg: 1 });
+    doFetch({ borough, neighborhood: value, scene, type, price, date, query, pg: 1 });
   }
 
-  function handleChange(field: "scene" | "type" | "price", value: string) {
+  function handleChange(field: "scene" | "type" | "price" | "date", value: string) {
     const next = {
       borough, neighborhood,
       scene: field === "scene" ? value : scene,
       type:  field === "type"  ? value : type,
       price: field === "price" ? value : price,
+      date:  field === "date"  ? value : date,
       query,
     };
-    setScene(next.scene); setType(next.type); setPrice(next.price);
+    setScene(next.scene); setType(next.type); setPrice(next.price); setDate(next.date);
     doFetch({ ...next, pg: 1 });
   }
 
@@ -183,7 +195,7 @@ export default function Results() {
     e.preventDefault();
     const q = searchRef.current?.value ?? "";
     setQuery(q);
-    doFetch({ borough, neighborhood, scene, type, price, query: q, pg: 1 });
+    doFetch({ borough, neighborhood, scene, type, price, date, query: q, pg: 1 });
   }
 
   // ── Sync URL params → state & auto-fetch when URL changes ───────────────────
@@ -195,13 +207,14 @@ export default function Results() {
     const t = (router.query.type    as string) || "all";
     const b = (router.query.borough as string) || "";
     const p = (router.query.price   as string) || "all";
+    const d = (router.query.date    as string) || "all";
 
     setScene(s); setType(t); setBorough(b); setNeighborhood("");
-    setPrice(p); setQuery("");
+    setPrice(p); setDate(d); setQuery("");
     if (searchRef.current) searchRef.current.value = "";
 
-    if (s || t !== "all" || b || p !== "all") {
-      doFetch({ borough: b, neighborhood: "", scene: s, type: t, price: p, query: "", pg: 1 });
+    if (s || t !== "all" || b || p !== "all" || d !== "all") {
+      doFetch({ borough: b, neighborhood: "", scene: s, type: t, price: p, date: d, query: "", pg: 1 });
     } else {
       setEvents([]); setTotal(0); setHasSearched(false);
     }
@@ -210,14 +223,13 @@ export default function Results() {
   // ── Clear all filters ─────────────────────────────────────────────────────
   function clearAll() {
     setBorough(""); setNeighborhood(""); setScene("");
-    setType("all"); setPrice("all"); setQuery("");
+    setType("all"); setPrice("all"); setDate("all"); setQuery("");
     if (searchRef.current) searchRef.current.value = "";
     setEvents([]); setTotal(0); setHasSearched(false);
-    // Replace history so back-button goes to home, not the filtered URL
     router.replace("/results", undefined, { shallow: true });
   }
 
-  const cur = { borough, neighborhood, scene, type, price, query };
+  const cur = { borough, neighborhood, scene, type, price, date, query };
   const subNeighborhoods = NEIGHBORHOODS[borough] ?? [];
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -400,6 +412,15 @@ export default function Results() {
             <div className="dd-wrap">
               <select value={price} onChange={(e) => handleChange("price", e.target.value)} style={DD}>
                 {PRICE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date */}
+            <div className="dd-wrap">
+              <select value={date} onChange={(e) => handleChange("date", e.target.value)} style={DD}>
+                {DATE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
