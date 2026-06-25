@@ -60,9 +60,12 @@ const SCENE_MAP: Record<string, { audiences?: string[]; categories?: string[] }>
   // "nightlife" removed — too broad, catches playground "PARTY" permits.
   // Legitimate nightlife events from RA are also tagged "electronic"/"music"/"dance".
   "friends-night":  { categories: ["music", "comedy", "food_drink", "electronic", "dance"] },
+  // "public" and "community" removed — too broad (all NYC Open Data events are
+  // tagged ["festival","public"] regardless of whether they're basketball courts
+  // or real family events). Rely on audience tags + specific category terms.
   "with-kids": {
     audiences: ["kids", "family", "parents"],
-    categories: ["outdoor", "parks", "festival", "community", "public", "family", "children", "education"],
+    categories: ["outdoor", "parks", "festival", "family", "children", "education"],
   },
   "date-night":     { categories: ["theater", "arts", "film"] },
   solo:             { categories: ["arts", "outdoor", "film", "education"] },
