@@ -55,13 +55,14 @@ const NEIGHBORHOOD_ZIPS: Record<string, string[]> = {
 // ── Scene map ────────────────────────────────────────────────────────────────
 const SCENE_MAP: Record<string, { audiences?: string[]; categories?: string[]; excludeAudiences?: string[]; excludeCategories?: string[] }> = {
   "friends-night":  { categories: ["music", "comedy", "food_drink", "electronic", "dance"] },
-  // "with-kids": only match events explicitly tagged for families/kids, or NYC Parks
-  // programming. "outdoor" and "festival" removed — too broad (catches adult boat
-  // parties, nightlife events tagged "outdoors"). Hard-exclude anything tagged
-  // adults-only or nightlife.
+  // "with-kids": rely on explicit audience tags (kids/family set only when warranted
+  // by the scraper) and category terms that are unambiguously family-oriented.
+  // "outdoor", "festival", "family" removed from categories — too broad (NYC Open
+  // Data tags all permits as "festival"; "family" in categories ≠ family event).
+  // Hard-exclude adult/nightlife signals even if audiences tag is wrong.
   "with-kids": {
     audiences: ["kids", "family", "parents"],
-    categories: ["parks", "family", "children", "education"],
+    categories: ["parks", "children", "education"],
     excludeAudiences: ["adults"],
     excludeCategories: ["nightlife", "electronic", "18+", "21+"],
   },
