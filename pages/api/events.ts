@@ -53,19 +53,17 @@ const NEIGHBORHOOD_ZIPS: Record<string, string[]> = {
 };
 
 // ── Scene map ────────────────────────────────────────────────────────────────
-// Expanded to match both explicit audience tags AND family-friendly categories.
-// "with-kids" now also catches outdoor/parks/festival events which are
-// naturally family-friendly even without explicit audience tags.
-const SCENE_MAP: Record<string, { audiences?: string[]; categories?: string[] }> = {
-  // "nightlife" removed — too broad, catches playground "PARTY" permits.
-  // Legitimate nightlife events from RA are also tagged "electronic"/"music"/"dance".
+const SCENE_MAP: Record<string, { audiences?: string[]; categories?: string[]; excludeAudiences?: string[]; excludeCategories?: string[] }> = {
   "friends-night":  { categories: ["music", "comedy", "food_drink", "electronic", "dance"] },
-  // "public" and "community" removed — too broad (all NYC Open Data events are
-  // tagged ["festival","public"] regardless of whether they're basketball courts
-  // or real family events). Rely on audience tags + specific category terms.
+  // "with-kids": only match events explicitly tagged for families/kids, or NYC Parks
+  // programming. "outdoor" and "festival" removed — too broad (catches adult boat
+  // parties, nightlife events tagged "outdoors"). Hard-exclude anything tagged
+  // adults-only or nightlife.
   "with-kids": {
     audiences: ["kids", "family", "parents"],
-    categories: ["outdoor", "parks", "festival", "family", "children", "education"],
+    categories: ["parks", "family", "children", "education"],
+    excludeAudiences: ["adults"],
+    excludeCategories: ["nightlife", "electronic", "18+", "21+"],
   },
   "date-night":     { categories: ["theater", "arts", "film"] },
   solo:             { categories: ["arts", "outdoor", "film", "education"] },
@@ -192,10 +190,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ── Scene filter ──────────────────────────────────────────────────────────
     if (scene && scene in SCENE_MAP) {
       const map = SCENE_MAP[scene];
+      // Positive match: event must match at least one audience OR category term
       const orParts: string[] = [];
       for (const term of map.categories ?? []) orParts.push(`categories.ilike.%${term}%`);
       for (const term of map.audiences ?? []) orParts.push(`audiences.ilike.%${term}%`);
       if (orParts.length) query = query.or(orParts.join(","));
+      // Negative match: exclude explicitly adult/nightlife-tagged events
+      for (const term of map.excludeAudiences ?? []) {
+        query = query.not("audiences", "ilike", `%${term}%`);
+      }
+      for (const term of map.excludeCategories ?? []) {
+        query = query.not("categories", "ilike", `%${term}%`);
+      }
     }
 
     // ── Type filter ───────────────────────────────────────────────────────────
