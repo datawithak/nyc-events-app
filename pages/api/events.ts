@@ -111,6 +111,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     price,
     date,
     q,
+    require_url,
     limit: limitQ = String(PER_PAGE),
     offset: offsetQ = "0",
   } = req.query as Record<string, string>;
@@ -127,6 +128,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       )
       .gte("start_utc", new Date().toISOString())
       .order("start_utc", { ascending: true });
+
+    // ── Require real URL (home page rows only) ────────────────────────────────
+    // Excludes permit-only sources (e.g. NYC Open Data) that have no event page.
+    if (require_url === "true") {
+      query = query.not("url", "is", null);
+    }
 
     // ── Location filter ───────────────────────────────────────────────────────
     if (borough && borough !== "All Neighborhoods" && borough !== "") {

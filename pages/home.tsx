@@ -25,13 +25,13 @@ const SECTIONS = [
   {
     title: "This Weekend",
     emoji: "🎪",
-    params: "date=weekend&limit=12",
+    params: "date=weekend&require_url=true&limit=12",
     seeAllHref: "/results?date=weekend",
   },
   {
     title: "This Week",
     emoji: "📅",
-    params: "date=week&limit=12",
+    params: "date=week&require_url=true&limit=12",
     seeAllHref: "/results?date=week",
   },
 ] as const;
