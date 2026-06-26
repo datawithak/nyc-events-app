@@ -131,17 +131,9 @@ export default function Results() {
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
-  function isDefault(f: { borough: string; neighborhood: string; scene: string; type: string; price: string; date: string; query: string }) {
-    return !f.borough && !f.neighborhood && !f.scene && f.type === "all" && f.price === "all" && f.date === "all" && !f.query.trim();
-  }
-
   async function doFetch(opts: {
     borough: string; neighborhood: string; scene: string; type: string; price: string; date: string; query: string; pg: number;
   }) {
-    if (isDefault(opts)) {
-      setEvents([]); setTotal(0); setHasSearched(false);
-      return;
-    }
     setLoading(true);
     setHasSearched(true);
     try {
@@ -213,11 +205,7 @@ export default function Results() {
     setPrice(p); setDate(d); setQuery("");
     if (searchRef.current) searchRef.current.value = "";
 
-    if (s || t !== "all" || b || p !== "all" || d !== "all") {
-      doFetch({ borough: b, neighborhood: "", scene: s, type: t, price: p, date: d, query: "", pg: 1 });
-    } else {
-      setEvents([]); setTotal(0); setHasSearched(false);
-    }
+    doFetch({ borough: b, neighborhood: "", scene: s, type: t, price: p, date: d, query: "", pg: 1 });
   }, [router.asPath, router.isReady]); // eslint-disable-line
 
   // ── Clear all filters ─────────────────────────────────────────────────────
@@ -225,8 +213,9 @@ export default function Results() {
     setBorough(""); setNeighborhood(""); setScene("");
     setType("all"); setPrice("all"); setDate("all"); setQuery("");
     if (searchRef.current) searchRef.current.value = "";
-    setEvents([]); setTotal(0); setHasSearched(false);
     router.replace("/results", undefined, { shallow: true });
+    // Reload with no filters — shows all upcoming events
+    doFetch({ borough: "", neighborhood: "", scene: "", type: "all", price: "all", date: "all", query: "", pg: 1 });
   }
 
   const cur = { borough, neighborhood, scene, type, price, date, query };
@@ -290,7 +279,7 @@ export default function Results() {
               fontSize: "0.6rem", letterSpacing: "0.22em",
               textTransform: "uppercase", color: "rgba(20,60,30,0.4)",
             }}>
-              {loading ? "Loading…" : hasSearched ? `${total.toLocaleString()} events` : ""}
+              {loading ? "Loading…" : total > 0 ? `${total.toLocaleString()} events` : ""}
             </span>
             {hasSearched && (
               <button
@@ -324,7 +313,7 @@ export default function Results() {
             fontStyle: "italic",
             color: "rgba(20,60,30,0.6)",
           }}>
-            Choose your filters to explore events
+            Search and filter NYC events
           </p>
 
           {/* Search bar */}
@@ -439,27 +428,7 @@ export default function Results() {
         {/* Events area */}
         <div style={{ flex: 1, maxWidth: 1160, width: "100%", margin: "0 auto", padding: "0 1.25rem 3rem" }}>
 
-          {!hasSearched ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "5rem 1rem", gap: "0.75rem" }}>
-              <span style={{ width: 8, height: 8, background: "#3a6642", transform: "rotate(45deg)", display: "inline-block", opacity: 0.3 }} />
-              <p style={{
-                fontFamily: "var(--font-cormorant), Georgia, serif",
-                fontSize: "1.05rem", fontStyle: "italic",
-                color: "rgba(20,60,30,0.4)", margin: 0, textAlign: "center",
-              }}>
-                Select a filter or search above to discover events
-              </p>
-              <p style={{
-                fontFamily: "var(--font-josefin), system-ui, sans-serif",
-                fontSize: "0.58rem", letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                color: "rgba(20,60,30,0.3)", margin: 0, textAlign: "center",
-              }}>
-                Tip: combine filters — e.g. search "jazz" with Scene → With Kids
-              </p>
-            </div>
-
-          ) : loading && events.length === 0 ? (
+          {loading && events.length === 0 ? (
             <div style={{ display: "flex", justifyContent: "center", padding: "4rem" }}>
               <p style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "1rem", fontStyle: "italic", color: "rgba(20,60,30,0.4)", margin: 0 }}>
                 Loading events…
