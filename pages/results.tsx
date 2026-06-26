@@ -4,6 +4,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { REFINE_TYPES } from "@/lib/constants";
 import { formatEventDate, formatEventTime, formatPrice } from "@/lib/format";
+import { getEventImage, getImageHeight } from "@/lib/categoryImages";
 import type { Event } from "@/lib/types";
 
 // ─── Dropdown options ──────────────────────────────────────────────────────────
@@ -226,8 +227,13 @@ export default function Results() {
           transform: translateY(-50%); pointer-events: none;
           color: #3a6642; font-size: 0.6rem;
         }
-        .ev-card { transition: border-color 0.2s, background 0.2s; }
-        .ev-card:hover { border-color: rgba(40,90,50,0.5) !important; background: rgba(240,248,242,0.92) !important; }
+        /* Masonry via CSS columns */
+        .masonry { columns: 3; column-gap: 0.75rem; }
+        @media (max-width: 860px) { .masonry { columns: 2; } }
+        @media (max-width: 500px) { .masonry { columns: 1; } }
+        .masonry-item { break-inside: avoid; margin-bottom: 0.75rem; display: block; }
+        .ev-card { transition: border-color 0.2s, transform 0.15s; }
+        .ev-card:hover { border-color: rgba(40,90,50,0.5) !important; transform: translateY(-2px); }
         .details-btn:hover { background: #2a5035 !important; }
         .search-input::placeholder { color: rgba(20,60,30,0.38); }
         .search-input:focus { outline: none; border-color: rgba(40,90,50,0.55) !important; }
@@ -423,8 +429,12 @@ export default function Results() {
 
           ) : (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "0.875rem" }}>
-                {events.map((ev) => <EventCard key={ev.id} event={ev} />)}
+              <div className="masonry">
+                {events.map((ev) => (
+                  <div key={ev.id} className="masonry-item">
+                    <EventCard event={ev} />
+                  </div>
+                ))}
               </div>
 
               {totalPages > 1 && (
@@ -474,6 +484,9 @@ function EventCard({ event }: { event: Event }) {
   const priceStr = formatPrice(event.is_free, event.price_min, event.price_max);
   const isFree   = priceStr === "Free";
 
+  const imgSrc   = getEventImage(event);
+  const imgH     = getImageHeight(event.id);
+
   const linkUrl = event.url
     ? event.url
     : `https://www.google.com/search?q=${encodeURIComponent(
@@ -481,61 +494,79 @@ function EventCard({ event }: { event: Event }) {
       )}`;
 
   return (
-    <article
+    <a
+      href={linkUrl}
+      target="_blank"
+      rel="noopener noreferrer"
       className="ev-card"
       style={{
-        display: "flex", flexDirection: "column",
+        display: "block",
         border: "1px solid rgba(30,70,40,0.18)",
-        background: "rgba(240,248,242,0.62)",
+        background: "rgba(240,248,242,0.72)",
         backdropFilter: "blur(4px)",
-        padding: "1rem 1.15rem",
+        textDecoration: "none",
+        overflow: "hidden",
       }}
     >
-      <h3 style={{
-        margin: "0 0 0.65rem",
-        fontFamily: "var(--font-josefin), system-ui, sans-serif",
-        fontSize: "0.76rem", fontWeight: 600,
-        letterSpacing: "0.1em", textTransform: "uppercase",
-        color: "#1a3a2a", lineHeight: 1.35,
-        display: "-webkit-box", WebkitLineClamp: 2,
-        WebkitBoxOrient: "vertical", overflow: "hidden",
-      }}>
-        {event.title}
-      </h3>
+      {/* Category / event image */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={imgSrc}
+        alt=""
+        loading="lazy"
+        style={{ width: "100%", height: imgH, objectFit: "cover", display: "block" }}
+      />
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-        <p style={{ margin: 0, fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "0.88rem", color: "rgba(20,60,30,0.75)" }}>
+      {/* Card body */}
+      <div style={{ padding: "0.8rem 1rem 1rem", display: "flex", flexDirection: "column", gap: "0.22rem" }}>
+
+        {/* Free badge */}
+        {isFree && (
+          <span style={{
+            alignSelf: "flex-start",
+            background: "rgba(42,110,42,0.11)", color: "#2a6e2a",
+            padding: "0.07rem 0.42rem",
+            fontFamily: "var(--font-josefin), system-ui, sans-serif",
+            fontSize: "0.45rem", fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
+            marginBottom: "0.08rem",
+          }}>
+            Free
+          </span>
+        )}
+
+        <h3 style={{
+          margin: 0,
+          fontFamily: "var(--font-josefin), system-ui, sans-serif",
+          fontSize: "0.74rem", fontWeight: 600, letterSpacing: "0.09em",
+          textTransform: "uppercase", color: "#1a3a2a", lineHeight: 1.35,
+          display: "-webkit-box", WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical", overflow: "hidden",
+        }}>
+          {event.title}
+        </h3>
+
+        <p style={{ margin: "0.1rem 0 0", fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "0.86rem", color: "rgba(20,60,30,0.75)" }}>
           <span style={{ fontWeight: 600 }}>{date}</span>
           {time && <span style={{ fontStyle: "italic" }}> · {time}</span>}
         </p>
 
         {event.venue_name && (
-          <p style={{ margin: 0, fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "0.82rem", fontStyle: "italic", color: "rgba(20,60,30,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <p style={{ margin: 0, fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "0.8rem", fontStyle: "italic", color: "rgba(20,60,30,0.48)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {event.venue_name}
           </p>
         )}
 
-        {event.borough && (
-          <p style={{ margin: 0, fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.56rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(20,60,30,0.38)" }}>
-            {event.borough}
-          </p>
-        )}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "0.55rem", paddingTop: "0.55rem", borderTop: "1px solid rgba(30,70,40,0.1)" }}>
+          <span style={{ fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: isFree ? "#2a6e2a" : "rgba(20,60,30,0.55)" }}>
+            {isFree ? "Free" : priceStr}
+          </span>
+          {event.borough && (
+            <span style={{ fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.46rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(20,60,30,0.3)" }}>
+              {event.borough}
+            </span>
+          )}
+        </div>
       </div>
-
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "0.8rem", paddingTop: "0.8rem", borderTop: "1px solid rgba(30,70,40,0.1)" }}>
-        <span style={{ fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: isFree ? "#2a6e2a" : "rgba(20,60,30,0.6)" }}>
-          {priceStr}
-        </span>
-        <a
-          href={linkUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="details-btn"
-          style={{ background: "#3a6642", color: "#f4f7f0", padding: "0.3rem 0.8rem", fontFamily: "var(--font-josefin), system-ui, sans-serif", fontSize: "0.56rem", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", textDecoration: "none", transition: "background 0.2s" }}
-        >
-          {event.url ? "Details →" : "Search →"}
-        </a>
-      </div>
-    </article>
+    </a>
   );
 }

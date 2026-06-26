@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { formatEventDate, formatEventTime, formatPrice } from "@/lib/format";
+import { getEventImage } from "@/lib/categoryImages";
 import type { Event } from "@/lib/types";
 
 // ─── Quick-access chips ───────────────────────────────────────────────────────
@@ -379,32 +380,16 @@ function MiniCard({ event }: { event: Event }) {
         overflow: "hidden",
       }}
     >
-      {/* Image or placeholder */}
-      {event.image_url ? (
-        <div style={{ width: "100%", height: 128, overflow: "hidden", flexShrink: 0 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={event.image_url}
-            alt=""
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            loading="lazy"
-          />
-        </div>
-      ) : (
-        <div style={{
-          width: "100%", height: 72, flexShrink: 0,
-          background: "rgba(58,102,66,0.07)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <span style={{
-            width: 10, height: 10,
-            background: "#3a6642",
-            transform: "rotate(45deg)",
-            display: "inline-block",
-            opacity: 0.18,
-          }} />
-        </div>
-      )}
+      {/* Category image — always shown, falls back to curated pool */}
+      <div style={{ width: "100%", height: 128, overflow: "hidden", flexShrink: 0 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={getEventImage(event)}
+          alt=""
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          loading="lazy"
+        />
+      </div>
 
       {/* Card body */}
       <div style={{
