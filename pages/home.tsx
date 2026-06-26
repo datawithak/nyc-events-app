@@ -20,22 +20,16 @@ const QUICK_CHIPS = [
 ];
 
 // ─── Discovery rows ───────────────────────────────────────────────────────────
-// Three independently-fetched rows. First row is family-first (our core user).
+// Two independently-fetched rows: weekend first, then the full week ahead.
 const SECTIONS = [
   {
-    title: "Kids & Family This Weekend",
+    title: "This Weekend",
     emoji: "🎪",
-    params: "scene=with-kids&date=weekend&limit=12",
-    seeAllHref: "/results?scene=with-kids&date=weekend",
+    params: "date=weekend&limit=12",
+    seeAllHref: "/results?date=weekend",
   },
   {
-    title: "Free This Weekend",
-    emoji: "🌳",
-    params: "price=free&date=weekend&limit=12",
-    seeAllHref: "/results?price=free&date=weekend",
-  },
-  {
-    title: "Happening This Week",
+    title: "This Week",
     emoji: "📅",
     params: "date=week&limit=12",
     seeAllHref: "/results?date=week",
@@ -45,8 +39,8 @@ const SECTIONS = [
 // ─── Home page component ──────────────────────────────────────────────────────
 
 export default function Home() {
-  const [sections, setSections] = useState<Event[][]>([[], [], []]);
-  const [loading, setLoading] = useState([true, true, true]);
+  const [sections, setSections] = useState<Event[][]>([[], []]);
+  const [loading, setLoading] = useState([true, true]);
 
   // Fetch all rows in parallel on mount
   useEffect(() => {
