@@ -225,7 +225,7 @@ export default function Results() {
   return (
     <>
       <Head>
-        <title>Metropolitan — Events</title>
+        <title>Locl — Events</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </Head>
 
@@ -271,7 +271,7 @@ export default function Results() {
             textTransform: "uppercase", color: "rgba(20,60,30,0.65)",
             textDecoration: "none",
           }}>
-            ← Metropolitan
+            ← Locl
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
             <span style={{

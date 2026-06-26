@@ -74,7 +74,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Metropolitan — NYC Events</title>
+        <title>Locl — NYC Events</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </Head>
 
@@ -137,7 +137,7 @@ export default function Home() {
               letterSpacing: "0.1em",
               color: "#1a3a2a",
             }}>
-              Metropolitan
+              Locl
             </h1>
             <p style={{
               margin: 0,
